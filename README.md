@@ -78,9 +78,11 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 - RAM: 15 GiB, swap 4 GiB
 - Workspace filesystem free space: 약 902 GB
 - System Python: 3.12.3
-- System Python에는 PyTorch가 설치되어 있지 않음
+- Project prerequisite environment: `.venv`, PyTorch 2.13.0+cu130, NumPy 2.5.2, ipykernel 7.3.0
+- Jupyter kernel: `Python (oles3d .venv)`
+- 이 최소 environment는 prerequisite용이며 nnU-Net/medical-imaging research stack freeze는 아님
 
-호환성 matrix를 정한 직후 최소 별도 `.venv`를 만들고, run마다 config snapshot, Git commit SHA, package lock, data manifest hash, seed와 hardware snapshot을 남긴다.
+Research stack compatibility matrix를 정한 뒤 prerequisite environment와 분리해 확장하고, run마다 config snapshot, Git commit SHA, package lock, data manifest hash, seed와 hardware snapshot을 남긴다.
 
 ## 바로 다음 gate
 

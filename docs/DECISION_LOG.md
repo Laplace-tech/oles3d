@@ -152,6 +152,32 @@ Files/runs:
 - `docs/PROJECT_CHARTER.md`
 - `studies/prerequisites/`
 
+## 2026-09-04 — Dedicated prerequisite environment created
+
+Decision:
+
+- Create project-local `.venv` with Python 3.12.3.
+- Install only PyTorch 2.13.0+cu130, NumPy 2.5.2 and ipykernel 7.3.0 as direct prerequisite dependencies.
+- Register the user kernel as `Python (oles3d .venv)`.
+- Treat this as a study environment, not the frozen nnU-Net research environment.
+
+Evidence:
+
+- The official PyTorch wheel index provides PyTorch 2.13.0 for Python 3.12 and CUDA 13.0.
+- The live host exposes an RTX 3060 Ti through WSL and the matching PyTorch stack is already known to run on the host.
+
+Impact on protocol:
+
+- Prerequisite notebooks no longer depend on the Maverick environment.
+- Medical-imaging and nnU-Net dependencies remain pending until their scheduled compatibility gate.
+
+Files/runs:
+
+- `.python-version`
+- `requirements-study.in`
+- `requirements-study.lock`
+- `studies/prerequisites/part01_segmentation_fundamentals/01_tensor_contracts.ipynb`
+
 ## Template for future entries
 
 ```text
