@@ -30,7 +30,7 @@
 
 따라서 Python 기초, 일반 backpropagation 또는 Transformer 전체를 다시 공부하지 않는다.
 
-이 평가는 공개 repository 증거에 맞춘 것이다. [CheXpert](https://github.com/Laplace-tech/CheXpert)에는 PyTorch training/evaluation과 leakage-aware thresholding, [capstone-cxr](https://github.com/Laplace-tech/capstone-cxr)에는 inference service와 contract tests, [UMUD](https://github.com/Laplace-tech/umud-muscle-ultrasound-research)에는 data audit와 reproducibility 중심 작업, [Maverick](https://github.com/Laplace-tech/maverick)에는 D2L 구현 이력이 있다. 반면 공개 repository에서 3D NIfTI segmentation을 end-to-end로 수행한 증거는 확인되지 않았으므로 학습시간을 그 bridge에 집중한다.
+이 평가는 공개 repository 증거에 맞춘 것이다. [CheXpert](https://github.com/Laplace-tech/CheXpert)에는 PyTorch training/evaluation과 leakage-aware thresholding, [capstone-cxr](https://github.com/Laplace-tech/capstone-cxr)에는 inference service와 contract tests, [Maverick](https://github.com/Laplace-tech/maverick)에는 D2L 구현 이력이 있다. 반면 공개 repository에서 3D NIfTI segmentation을 end-to-end로 수행한 증거는 확인되지 않았으므로 학습시간을 그 bridge에 집중한다.
 
 ## 2. 학습 원칙
 

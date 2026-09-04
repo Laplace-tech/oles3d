@@ -10,11 +10,11 @@
 
 ### Korean working title
 
-**단일 8 GB GPU 환경의 3차원 복부 CT 분할을 위한 장기별 학습상태 및 오류유형 기반 적응형 패치 샘플링**
+**3차원 복부 CT 분할을 위한 장기별 학습상태 및 오류유형 기반 적응형 패치 샘플링**
 
 ### English working title
 
-**OLES3D: Organ Learning-State and Error-Type Sampling for 3D Abdominal CT Segmentation under a Single 8-GB GPU Setting**
+**OLES3D: Organ-wise Learning-State and Error-Type-Guided Adaptive Patch Sampling for 3D Abdominal CT Segmentation**
 
 ### Decision
 

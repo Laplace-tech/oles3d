@@ -122,6 +122,36 @@ Impact on protocol:
 - B1 one-seed에서는 controller-specific added-value claim 금지
 - All-one-seed에서는 observed seed에 conditional한 descriptive Track B만 허용
 
+## 2026-09-04 — Project name retained and formal title refined
+
+Decision:
+
+- Short project name and repository slug remain `OLES3D` and `oles3d`.
+- English working title becomes **OLES3D: Organ-wise Learning-State and Error-Type-Guided Adaptive Patch Sampling for 3D Abdominal CT Segmentation**.
+- Korean working title becomes **3차원 복부 CT 분할을 위한 장기별 학습상태 및 오류유형 기반 적응형 패치 샘플링**.
+
+Evidence:
+
+- A live exact-name web search on 2026-09-04 found no medical-imaging method using `OLES3D`.
+- `OLES` maps directly to organ-wise, learning-state, error-type and sampling, while `3D` identifies the volumetric task.
+- The single 8 GB GPU is an experimental constraint and efficiency target, not the proposed method itself.
+
+Alternatives rejected:
+
+- A new acronym would discard an already consistent document set without improving the scientific definition.
+- Keeping the hardware setting in the main title could make an engineering constraint look like the method contribution.
+
+Impact on protocol:
+
+- Method, endpoint, comparator and compute rules do not change.
+- The 8 GB constraint remains mandatory in the protocol and efficiency analysis.
+
+Files/runs:
+
+- `README.md`
+- `docs/PROJECT_CHARTER.md`
+- `studies/prerequisites/`
+
 ## Template for future entries
 
 ```text

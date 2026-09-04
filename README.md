@@ -1,6 +1,6 @@
 # OLES3D
 
-**Organ Learning-State and Error-Type Sampling for 3D Abdominal CT Segmentation under a Single 8-GB GPU Setting**
+**Organ-wise Learning-State and Error-Type-Guided Adaptive Patch Sampling for 3D Abdominal CT Segmentation**
 
 OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network architecture는 그대로 두고 **training patch를 고르는 정책 하나만** 연구하는 프로젝트다. 2026년 한국정보기술학회 추계 대학생논문경진대회 투고를 1차 목표로 한다.
 
@@ -67,6 +67,7 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 - [Decision log](docs/DECISION_LOG.md): 바뀐 판단과 근거를 시간순으로 보존
 - [Advisor brief](docs/ADVISOR_BRIEF.md): 지도교수에게 바로 전달할 one-page 연구 요약
 - [Freeze registry](protocol/FREEZE_REGISTRY.yaml): 결과를 보기 전 고정할 항목과 gate의 machine-readable 목록
+- [Prerequisite study](studies/prerequisites/README.md): 구현 전에 완료할 학습 단위와 직접 설명할 질문
 
 ## 현재 환경 snapshot
 
