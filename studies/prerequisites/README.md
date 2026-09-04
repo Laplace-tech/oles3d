@@ -4,7 +4,15 @@
 
 이 과정은 완성 코드를 읽고 넘어가는 tutorial이 아니다. 마벨러스가 Tensor Shape와 Data Flow를 먼저 설명하고, 핵심 algorithm을 PyTorch와 작은 synthetic data로 직접 작성한 뒤 test와 결과를 repository에 남긴다.
 
-운영 규칙은 [Course contract](COURSE_CONTRACT.md)를 따른다.
+## 운영 규칙
+
+1. 핵심 개념, Tensor Shape와 Data Flow를 먼저 설명한다.
+2. 마벨러스가 learner-sized scratch cell을 직접 입력하고 실행한다.
+3. Codex는 저장된 cell, output, assertion을 직접 검사한다.
+4. `스톱오버`에서는 fresh kernel로 전체 notebook을 다시 실행한다.
+5. teach-back과 runtime 검증을 모두 통과한 progress만 commit한다.
+6. 함수와 Tensor helper에는 명확한 type annotation을 사용한다.
+7. medical image, patient metadata, checkpoint와 credential은 Git에 올리지 않는다.
 
 ## 학습과 연구 구현의 경계
 
@@ -31,7 +39,7 @@ Prerequisite 통과 전 금지하는 것:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 1.1 | Classification-to-segmentation Tensor Contract | Shape table and `argmax` trace | In progress |
+| 1.1 | Classification-to-segmentation Tensor Contract | Shape table and `argmax` trace | Runtime passed; teach-back pending |
 | 1.2 | Softmax and Cross-Entropy per pixel/voxel | Stable softmax and NLL calculation | Not started |
 | 1.3 | Confusion counts, Dice and IoU | Perfect/disjoint/partial/empty tests | Not started |
 
@@ -153,6 +161,13 @@ Exit:
 
 통과 후에만 `environment/data baseline -> B0 -> failure analysis -> B1 -> OLES3D` 연구 구현으로 이동한다.
 
-## Current Lesson
+## Current progress
 
-[Lesson 1.1 — Segmentation Tensor Contracts](01_segmentation_tensor_contracts.md)부터 시작한다.
+```text
+전체 Prerequisite  [█░░░░░░░░░░░░░░░░░░░] 약 4%
+Lesson 1.1         [██████████████████░░] 90%
+```
+
+Lesson 1.1의 scratch implementation과 fresh-kernel stopover는 통과했다. 잘못된 shape 주석 한 줄 수정과 teach-back을 통과하면 Lesson 1.2로 이동한다.
+
+현재 notebook: [01_tensor_contracts.ipynb](part01_segmentation_fundamentals/01_tensor_contracts.ipynb)

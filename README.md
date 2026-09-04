@@ -57,17 +57,11 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 - 한 seed의 작은 Dice 상승을 결론으로 사용하지 않는다.
 - novelty 때문에 2026-09-20 baseline gate 또는 2026-10-12 result freeze를 넘기면 기능을 삭제한다.
 
-## 문서
+## Repository
 
-- [Project charter](docs/PROJECT_CHARTER.md): 연구 질문, 방법, novelty boundary, pivot rule
-- [Learning plan](docs/LEARNING_PLAN.md): 마벨러스의 현재 역량에 맞춘 약 30–40시간 mandatory core와 후속 enrichment
-- [Experiment protocol](docs/EXPERIMENT_PROTOCOL.md): data, split, baseline, metric, statistics, compute rule
-- [KIIT roadmap](docs/KIIT_2026_FALL_ROADMAP.md): 공식 일정과 49일 역산 계획
-- [Literature map](docs/LITERATURE_MAP.md): 가장 가까운 선행연구와 OLES3D의 차이
-- [Decision log](docs/DECISION_LOG.md): 바뀐 판단과 근거를 시간순으로 보존
-- [Advisor brief](docs/ADVISOR_BRIEF.md): 지도교수에게 바로 전달할 one-page 연구 요약
-- [Freeze registry](protocol/FREEZE_REGISTRY.yaml): 결과를 보기 전 고정할 항목과 gate의 machine-readable 목록
-- [Prerequisite study](studies/prerequisites/README.md): 구현 전에 완료할 학습 단위와 직접 설명할 질문
+- [Prerequisite study](studies/prerequisites/README.md): 구현 전에 완료할 전체 학습 경로와 현재 진행 상태
+- `studies/prerequisites/part*/`: 직접 작성하고 실행한 PyTorch notebook
+- `.gitignore`: medical image, patient metadata, model artifact와 credential의 commit 방지
 
 ## 현재 환경 snapshot
 
@@ -82,7 +76,21 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 - Jupyter kernel: `Python (oles3d .venv)`
 - 이 최소 environment는 prerequisite용이며 nnU-Net/medical-imaging research stack freeze는 아님
 
-Research stack compatibility matrix를 정한 뒤 prerequisite environment와 분리해 확장하고, run마다 config snapshot, Git commit SHA, package lock, data manifest hash, seed와 hardware snapshot을 남긴다.
+### Prerequisite environment 재현
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install \
+  --extra-index-url https://download.pytorch.org/whl/cu130 \
+  torch==2.13.0+cu130 numpy==2.5.2 ipykernel==7.3.0
+python -m ipykernel install --user \
+  --name oles3d-venv \
+  --display-name "Python (oles3d .venv)"
+```
+
+Research stack compatibility matrix를 정한 뒤 prerequisite environment와 분리해 확장하고, run마다 config snapshot, Git commit SHA, data manifest hash, seed와 hardware snapshot을 남긴다.
 
 ## 바로 다음 gate
 
