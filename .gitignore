@@ -1,0 +1,49 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter and editors
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Medical images and datasets: never commit patient-level data
+data/
+*.nii
+*.nii.gz
+*.dcm
+*.nrrd
+*.mha
+*.mhd
+*.zip
+
+# Model artifacts and experiment outputs
+artifacts/
+outputs/
+runs/
+wandb/
+mlruns/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+
+# nnU-Net runtime directories
+nnUNet_raw/
+nnUNet_preprocessed/
+nnUNet_results/
+
+# OS noise
+.DS_Store
+Thumbs.db
