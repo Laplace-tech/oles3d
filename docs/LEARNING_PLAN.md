@@ -1,6 +1,6 @@
 # OLES3D Learning Plan
 
-목표: 2026-09-20까지 nnU-Net baseline을 **이해하고 검증할 수 있는 수준**에 도달한다. 제출 전 mandatory core는 약 30–40시간, baseline 이후 enrichment는 10–15시간이다. 책을 끝내고 시작하는 방식이 아니라 매 단계가 repository artifact와 test를 만든다.
+목표: 2026-09-20까지 nnU-Net baseline을 **이해하고 검증할 수 있는 수준**에 도달한다. 제출 전 mandatory core는 약 30–40시간, baseline 이후 enrichment는 10–15시간이다. 상세한 D2L-style 실행 순서와 notebook ownership은 [`studies/prerequisites/README.md`](../studies/prerequisites/README.md)와 [`COURSE_CONTRACT.md`](../studies/prerequisites/COURSE_CONTRACT.md)를 따른다.
 
 ## 1. 현재 출발점
 
