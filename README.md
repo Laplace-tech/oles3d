@@ -73,7 +73,8 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 - Workspace filesystem free space: 약 902 GB
 - System Python: 3.12.3
 - Project prerequisite environment: `.venv`, PyTorch 2.13.0+cu130, NumPy 2.5.2, ipykernel 7.3.0
-- Jupyter kernel: `Python (oles3d .venv)`
+- VS Code interpreter: `/home/anna/projects/oles3d/.venv/bin/python`
+- VS Code notebook kernel: `.venv (3.12.3)` (`kernelspec.name: python3`)
 - 이 최소 environment는 prerequisite용이며 nnU-Net/medical-imaging research stack freeze는 아님
 
 ### Prerequisite environment 재현
@@ -85,10 +86,9 @@ python -m pip install --upgrade pip
 python -m pip install \
   --extra-index-url https://download.pytorch.org/whl/cu130 \
   torch==2.13.0+cu130 numpy==2.5.2 ipykernel==7.3.0
-python -m ipykernel install --user \
-  --name oles3d-venv \
-  --display-name "Python (oles3d .venv)"
 ```
+
+VS Code의 notebook kernel selector에서는 `Python Environments` 아래 project `.venv (3.12.3)`를 사용한다. 별도 global kernelspec은 만들지 않는다.
 
 Research stack compatibility matrix를 정한 뒤 prerequisite environment와 분리해 확장하고, run마다 config snapshot, Git commit SHA, data manifest hash, seed와 hardware snapshot을 남긴다.
 

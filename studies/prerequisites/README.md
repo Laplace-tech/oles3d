@@ -56,8 +56,8 @@ Exit:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 2.1 | Convolution Shape and Receptive Field | Shape/receptive-field calculator | In progress |
-| 2.2 | Encoder, Decoder and Skip Connection | Minimal encoder-decoder blocks | Not started |
+| 2.1 | Convolution Shape and Receptive Field | Shape/receptive-field calculator | Completed |
+| 2.2 | Encoder, Decoder and Skip Connection | Minimal encoder-decoder blocks | Completed |
 | 2.3 | Minimal 2D U-Net and Tiny Overfit | Synthetic-shape overfit and overlay | Not started |
 
 Exit:
@@ -164,10 +164,10 @@ Exit:
 ## Current progress
 
 ```text
-전체 Prerequisite  [███░░░░░░░░░░░░░░░░░] 14.3% (3/21 lessons)
-Lesson 2.1         [░░░░░░░░░░░░░░░░░░░░] 0%
+전체 Prerequisite  [█████░░░░░░░░░░░░░░░] 23.8% (5/21 lessons)
+Lesson 2.3         [░░░░░░░░░░░░░░░░░░░░] 0%
 ```
 
-Part 1의 세 notebook이 scratch implementation과 sequential fresh-kernel stopover를 통과했다. Lesson 2.1에서는 convolution output shape와 receptive field를 직접 계산한다.
+Part 1과 Lesson 2.1–2.2가 scratch implementation 및 sequential fresh-kernel stopover를 통과했다. Lesson 2.3은 아직 시작하지 않았으며, minimal 2D U-Net과 tiny overfit을 구현할 차례다.
 
-현재 notebook: [01_convolution_shapes.ipynb](part02_unet_from_scratch/01_convolution_shapes.ipynb)
+현재 notebook: [03_minimal_2d_unet_tiny_overfit.ipynb](part02_unet_from_scratch/03_minimal_2d_unet_tiny_overfit.ipynb)
