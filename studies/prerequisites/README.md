@@ -39,8 +39,8 @@ Prerequisite 통과 전 금지하는 것:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 1.1 | Classification-to-segmentation Tensor Contract | Shape table and `argmax` trace | Runtime passed; teach-back pending |
-| 1.2 | Softmax and Cross-Entropy per pixel/voxel | Stable softmax and NLL calculation | Not started |
+| 1.1 | Classification-to-segmentation Tensor Contract | Shape table and `argmax` trace | Completed |
+| 1.2 | Softmax and Cross-Entropy per pixel/voxel | Stable softmax and NLL calculation | In progress |
 | 1.3 | Confusion counts, Dice and IoU | Perfect/disjoint/partial/empty tests | Not started |
 
 Exit:
@@ -164,10 +164,10 @@ Exit:
 ## Current progress
 
 ```text
-전체 Prerequisite  [█░░░░░░░░░░░░░░░░░░░] 약 4%
-Lesson 1.1         [██████████████████░░] 90%
+전체 Prerequisite  [█░░░░░░░░░░░░░░░░░░░] 4.8% (1/21 lessons)
+Lesson 1.2         [░░░░░░░░░░░░░░░░░░░░] 0%
 ```
 
-Lesson 1.1의 scratch implementation과 fresh-kernel stopover는 통과했다. 잘못된 shape 주석 한 줄 수정과 teach-back을 통과하면 Lesson 1.2로 이동한다.
+Lesson 1.1의 scratch implementation, negative test와 fresh-kernel stopover를 통과했다. Lesson 1.2에서는 stable softmax와 voxel-wise Cross-Entropy를 scratch로 구현한다.
 
-현재 notebook: [01_tensor_contracts.ipynb](part01_segmentation_fundamentals/01_tensor_contracts.ipynb)
+현재 notebook: [02_softmax_cross_entropy.ipynb](part01_segmentation_fundamentals/02_softmax_cross_entropy.ipynb)
