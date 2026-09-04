@@ -40,8 +40,8 @@ Prerequisite 통과 전 금지하는 것:
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
 | 1.1 | Classification-to-segmentation Tensor Contract | Shape table and `argmax` trace | Completed |
-| 1.2 | Softmax and Cross-Entropy per pixel/voxel | Stable softmax and NLL calculation | In progress |
-| 1.3 | Confusion counts, Dice and IoU | Perfect/disjoint/partial/empty tests | Not started |
+| 1.2 | Softmax and Cross-Entropy per pixel/voxel | Stable softmax and NLL calculation | Completed |
+| 1.3 | Confusion counts, Dice and IoU | Perfect/disjoint/partial/empty tests | Completed |
 
 Exit:
 
@@ -56,7 +56,7 @@ Exit:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 2.1 | Convolution Shape and Receptive Field | Shape/receptive-field calculator | Not started |
+| 2.1 | Convolution Shape and Receptive Field | Shape/receptive-field calculator | In progress |
 | 2.2 | Encoder, Decoder and Skip Connection | Minimal encoder-decoder blocks | Not started |
 | 2.3 | Minimal 2D U-Net and Tiny Overfit | Synthetic-shape overfit and overlay | Not started |
 
@@ -164,10 +164,10 @@ Exit:
 ## Current progress
 
 ```text
-전체 Prerequisite  [█░░░░░░░░░░░░░░░░░░░] 4.8% (1/21 lessons)
-Lesson 1.2         [░░░░░░░░░░░░░░░░░░░░] 0%
+전체 Prerequisite  [███░░░░░░░░░░░░░░░░░] 14.3% (3/21 lessons)
+Lesson 2.1         [░░░░░░░░░░░░░░░░░░░░] 0%
 ```
 
-Lesson 1.1의 scratch implementation, negative test와 fresh-kernel stopover를 통과했다. Lesson 1.2에서는 stable softmax와 voxel-wise Cross-Entropy를 scratch로 구현한다.
+Part 1의 세 notebook이 scratch implementation과 sequential fresh-kernel stopover를 통과했다. Lesson 2.1에서는 convolution output shape와 receptive field를 직접 계산한다.
 
-현재 notebook: [02_softmax_cross_entropy.ipynb](part01_segmentation_fundamentals/02_softmax_cross_entropy.ipynb)
+현재 notebook: [01_convolution_shapes.ipynb](part02_unet_from_scratch/01_convolution_shapes.ipynb)
