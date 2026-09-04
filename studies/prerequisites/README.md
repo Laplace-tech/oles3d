@@ -58,7 +58,7 @@ Exit:
 |---|---|---|---|
 | 2.1 | Convolution Shape and Receptive Field | Shape/receptive-field calculator | Completed |
 | 2.2 | Encoder, Decoder and Skip Connection | Minimal encoder-decoder blocks | Completed |
-| 2.3 | Minimal 2D U-Net and Tiny Overfit | Synthetic-shape overfit and overlay | Not started |
+| 2.3 | Minimal 2D U-Net and Tiny Overfit | Synthetic-shape overfit and overlay | Completed |
 
 Exit:
 
@@ -72,7 +72,7 @@ Exit:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 3.1 | Conv3d Tensor Flow and Memory | Minimal 3D block and memory estimate | Not started |
+| 3.1 | Conv3d Tensor Flow and Memory | Minimal 3D block and memory estimate | Completed |
 | 3.2 | Crop, Padding and Patch Sampling | Uniform/foreground crop sampler | Not started |
 | 3.3 | Sliding-Window Inference | Overlap accumulation and normalization | Not started |
 
@@ -164,10 +164,10 @@ Exit:
 ## Current progress
 
 ```text
-전체 Prerequisite  [█████░░░░░░░░░░░░░░░] 23.8% (5/21 lessons)
-Lesson 2.3         [░░░░░░░░░░░░░░░░░░░░] 0%
+전체 Prerequisite  [███████░░░░░░░░░░░░░] 33.3% (7/21 lessons)
+Lesson 3.2         [░░░░░░░░░░░░░░░░░░░░] 0%
 ```
 
-Part 1과 Lesson 2.1–2.2가 scratch implementation 및 sequential fresh-kernel stopover를 통과했다. Lesson 2.3은 아직 시작하지 않았으며, minimal 2D U-Net과 tiny overfit을 구현할 차례다.
+Part 1, Part 2와 Lesson 3.1이 scratch implementation 및 sequential fresh-kernel stopover를 통과했다. Lesson 3.2는 아직 시작하지 않았으며, crop, padding과 patch sampling을 구현할 차례다.
 
-현재 notebook: [03_minimal_2d_unet_tiny_overfit.ipynb](part02_unet_from_scratch/03_minimal_2d_unet_tiny_overfit.ipynb)
+현재 notebook: [02_crop_padding_patch_sampling.ipynb](part03_volumetric_learning/02_crop_padding_patch_sampling.ipynb)
