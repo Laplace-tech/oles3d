@@ -73,8 +73,8 @@ Exit:
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
 | 3.1 | Conv3d Tensor Flow and Memory | Minimal 3D block and memory estimate | Completed |
-| 3.2 | Crop, Padding and Patch Sampling | Uniform/foreground crop sampler | Not started |
-| 3.3 | Sliding-Window Inference | Overlap accumulation and normalization | Not started |
+| 3.2 | Crop, Padding and Patch Sampling | Uniform/foreground crop sampler | Completed |
+| 3.3 | Sliding-Window Inference | Overlap accumulation and normalization | Completed |
 
 Exit:
 
@@ -164,10 +164,10 @@ Exit:
 ## Current progress
 
 ```text
-전체 Prerequisite  [███████░░░░░░░░░░░░░] 33.3% (7/21 lessons)
-Lesson 3.2         [░░░░░░░░░░░░░░░░░░░░] 0%
+전체 Prerequisite  [█████████░░░░░░░░░░░] 42.9% (9/21 lessons)
+Part 3              [████████████████████] 100% (3/3 lessons)
 ```
 
-Part 1, Part 2와 Lesson 3.1이 scratch implementation 및 sequential fresh-kernel stopover를 통과했다. Lesson 3.2는 아직 시작하지 않았으며, crop, padding과 patch sampling을 구현할 차례다.
+Part 1–3의 모든 scratch implementation이 sequential fresh-kernel stopover를 통과했다. 다음은 Lesson 4.1에서 NIfTI array, affine과 index-to-physical coordinate 변환을 학습한다.
 
-현재 notebook: [02_crop_padding_patch_sampling.ipynb](part03_volumetric_learning/02_crop_padding_patch_sampling.ipynb)
+최근 완료 notebook: [03_sliding_window_inference.ipynb](part03_volumetric_learning/03_sliding_window_inference.ipynb)
