@@ -4,6 +4,11 @@
 
 이 과정은 완성 코드를 읽고 넘어가는 tutorial이 아니다. 마벨러스가 Tensor Shape와 Data Flow를 먼저 설명하고, 핵심 algorithm을 PyTorch와 작은 synthetic data로 직접 작성한 뒤 test와 결과를 repository에 남긴다.
 
+## 복습자료
+
+- [Parts 1–4.2 Cumulative Review PDF](review/OLES3D_Parts_1_to_4_2_Cumulative_Review.pdf): Segmentation fundamentals부터 NIfTI affine과 orientation까지의 누적 복습 및 자가시험
+- [PDF generator](review/generate_cumulative_review_pdf.py): 한국어 font embedding과 ASCII-safe 수식 box를 적용한 복습자료 재생성 script
+
 ## 운영 규칙
 
 1. 핵심 개념, Tensor Shape와 Data Flow를 먼저 설명한다.
@@ -88,8 +93,8 @@ Exit:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 4.1 | NIfTI Array and Affine | Index-to-physical coordinate calculation | Not started |
-| 4.2 | Orientation and Three-Plane Viewing | Axial/coronal/sagittal viewer | Not started |
+| 4.1 | NIfTI Array and Affine | Index-to-physical coordinate calculation | Completed |
+| 4.2 | Orientation and Three-Plane Viewing | Axial/coronal/sagittal viewer | Completed |
 | 4.3 | Spacing-Aware Resampling | Image/label interpolation and round trip | Not started |
 | 4.4 | CT HU, Windowing and Abdominal Anatomy | HU probes and training-case audit | Not started |
 
@@ -161,13 +166,60 @@ Exit:
 
 통과 후에만 `environment/data baseline -> B0 -> failure analysis -> B1 -> OLES3D` 연구 구현으로 이동한다.
 
+## 학습량과 난이도 통계
+
+Cell 수는 `Cell 0 — Project Imports`를 포함한다. 완료 lesson은 실제 notebook의 저장된 cell 수, 미완료 lesson은 사전에 고정한 계획 cell 수다.
+
+난이도 표기:
+
+- `██░░░`: 기초 개념을 기존 지식과 연결
+- `███░░`: 여러 개념과 Tensor/Data Flow를 함께 추적
+- `████░`: 수학, framework 내부 동작 또는 연구 통계의 주요 고비
+
+| Part | Lesson | Cell 수 | 상태 | 난이도 | 핵심 |
+|---|---|---:|---|---|---|
+| 1 | 1.1 Tensor Contract | 5 | Completed | `██░░░` | input, logits, target과 prediction Shape |
+| 1 | 1.2 Softmax and Cross-Entropy | 5 | Completed | `███░░` | 수치 안정성과 voxel-wise loss |
+| 1 | 1.3 Dice and IoU | 5 | Completed | `███░░` | TP/FP/FN과 empty-mask 처리 |
+| 2 | 2.1 Convolution and Receptive Field | 6 | Completed | `███░░` | convolution Shape와 receptive field 계산 |
+| 2 | 2.2 Encoder–Decoder and Skip | 5 | Completed | `███░░` | downsampling, upsampling과 feature 결합 |
+| 2 | 2.3 Minimal U-Net and Tiny Overfit | 6 | Completed | `████░` | end-to-end 학습과 failure diagnosis |
+| 3 | 3.1 Conv3D and Memory | 6 | Completed | `███░░` | 3D Tensor Flow와 activation memory |
+| 3 | 3.2 Crop, Padding and Sampling | 6 | Completed | `███░░` | patch 경계와 foreground sampling |
+| 3 | 3.3 Sliding-Window Inference | 5 | Completed | `████░` | overlap accumulation과 normalization |
+| 4 | 4.1 NIfTI and Affine | 5 | Completed | `███░░` | voxel index와 physical coordinate |
+| 4 | 4.2 Orientation and Three-Plane Viewer | 5 | Completed | `███░░` | orientation, plane과 canonical RAS |
+| 4 | 4.3 Spacing-Aware Resampling | 5 | Planned | `██░░░` | Shape, spacing과 interpolation |
+| 4 | 4.4 CT HU, Windowing and Anatomy | 6 | Planned | `███░░` | CT intensity와 복부 의료영상 지식 |
+| 5 | 5.1 Cross-Entropy plus Soft Dice | 6 | Planned | `██░░░` | 앞에서 구현한 loss의 결합 |
+| 5 | 5.2 Surface Distance, NSD and HD95 | 6 | Planned | `████░` | surface metric과 physical distance |
+| 5 | 5.3 Empty Masks and Case Aggregation | 5 | Planned | `███░░` | 평가 예외 규칙과 aggregation |
+| 6 | 6.1 Fingerprint, Plans and Preprocessing | 5 | Planned | `████░` | nnU-Net v2 planning 내부 구조 |
+| 6 | 6.2 Foreground Oversampling | 6 | Planned | `███░░` | OLES3D와 직접 연결되는 sampling 기준선 |
+| 6 | 6.3 Deep Supervision and Predictor | 6 | Planned | `████░` | multi-scale Tensor와 inference flow |
+| 7 | 7.1 Split, Leakage and Reproducibility | 6 | Planned | `██░░░` | 연구 분할과 재현성 규율 |
+| 7 | 7.2 Paired Evaluation and Bootstrap | 6 | Planned | `████░` | paired statistics와 confidence interval |
+
+```text
+완료 학습량       59 cells = 11 import + 48 learning
+남은 학습량       57 cells = 10 import + 47 learning
+예상 전체        116 cells = 21 import + 95 learning
+
+완료 lesson 진도  11/21 = 52.4%
+완료 cell 진도    59/116 = 50.9%
+
+난이도 ██░░░      22 cells
+난이도 ███░░      60 cells
+난이도 ████░      34 cells
+```
+
 ## Current progress
 
 ```text
-전체 Prerequisite  [█████████░░░░░░░░░░░] 42.9% (9/21 lessons)
-Part 3              [████████████████████] 100% (3/3 lessons)
+전체 Prerequisite  [███████████░░░░░░░░░] 52.4% (11/21 lessons)
+Part 4              [██████████░░░░░░░░░░] 50% (2/4 lessons)
 ```
 
-Part 1–3의 모든 scratch implementation이 sequential fresh-kernel stopover를 통과했다. 다음은 Lesson 4.1에서 NIfTI array, affine과 index-to-physical coordinate 변환을 학습한다.
+Part 1–3과 Lesson 4.1–4.2의 scratch implementation이 sequential fresh-kernel validation을 통과했다. 다음은 Lesson 4.3에서 image/label의 spacing-aware resampling을 학습한다.
 
-최근 완료 notebook: [03_sliding_window_inference.ipynb](part03_volumetric_learning/03_sliding_window_inference.ipynb)
+최근 완료 notebook: [02_orientation_three_plane_viewing.ipynb](part04_medical_image_geometry_ct/02_orientation_three_plane_viewing.ipynb)
