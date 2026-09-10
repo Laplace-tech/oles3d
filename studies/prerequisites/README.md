@@ -6,6 +6,8 @@
 
 ## 복습자료
 
+- [Parts 1–7 Offline Handbook PDF](review/OLES3D_Offline_Handbook_Parts_1_7.pdf): 전체 21개 lesson의 오프라인 복습·예습 교재. 손계산, 주석 달린 코드, 42개 자가시험과 해설, 12문항 종합시험, 공식집 및 6주 학습 예시 포함. 예습 범위는 실습 완료 진도에 포함하지 않음.
+- [Offline Handbook 원고](review/OLES3D_Offline_Handbook_Parts_1_7.md) · [PDF 생성기](review/build_offline_handbook.py) · [예제 검증기](review/validate_offline_handbook.py) · [실행 검증 기록](review/OLES3D_Offline_Handbook_validation.json)
 - [Parts 1–4.2 Cumulative Review PDF](review/OLES3D_Parts_1_to_4_2_Cumulative_Review.pdf): Segmentation fundamentals부터 NIfTI affine과 orientation까지의 누적 복습 및 자가시험
 - [PDF generator](review/generate_cumulative_review_pdf.py): 한국어 font embedding과 ASCII-safe 수식 box를 적용한 복습자료 재생성 script
 
@@ -95,8 +97,8 @@ Exit:
 |---|---|---|---|
 | 4.1 | NIfTI Array and Affine | Index-to-physical coordinate calculation | Completed |
 | 4.2 | Orientation and Three-Plane Viewing | Axial/coronal/sagittal viewer | Completed |
-| 4.3 | Spacing-Aware Resampling | Image/label interpolation and round trip | Not started |
-| 4.4 | CT HU, Windowing and Abdominal Anatomy | HU probes and training-case audit | Not started |
+| 4.3 | Spacing-Aware Resampling | Image/label interpolation and round trip | Completed |
+| 4.4 | CT HU, Windowing and Abdominal Anatomy | HU probes and training-case audit | Completed |
 
 Exit:
 
@@ -189,8 +191,8 @@ Cell 수는 `Cell 0 — Project Imports`를 포함한다. 완료 lesson은 실�
 | 3 | 3.3 Sliding-Window Inference | 5 | Completed | `████░` | overlap accumulation과 normalization |
 | 4 | 4.1 NIfTI and Affine | 5 | Completed | `███░░` | voxel index와 physical coordinate |
 | 4 | 4.2 Orientation and Three-Plane Viewer | 5 | Completed | `███░░` | orientation, plane과 canonical RAS |
-| 4 | 4.3 Spacing-Aware Resampling | 5 | Planned | `██░░░` | Shape, spacing과 interpolation |
-| 4 | 4.4 CT HU, Windowing and Anatomy | 6 | Planned | `███░░` | CT intensity와 복부 의료영상 지식 |
+| 4 | 4.3 Spacing-Aware Resampling | 5 | Completed | `██░░░` | Shape, spacing과 interpolation |
+| 4 | 4.4 CT HU, Windowing and Anatomy | 6 | Completed | `███░░` | CT intensity와 복부 의료영상 지식 |
 | 5 | 5.1 Cross-Entropy plus Soft Dice | 6 | Planned | `██░░░` | 앞에서 구현한 loss의 결합 |
 | 5 | 5.2 Surface Distance, NSD and HD95 | 6 | Planned | `████░` | surface metric과 physical distance |
 | 5 | 5.3 Empty Masks and Case Aggregation | 5 | Planned | `███░░` | 평가 예외 규칙과 aggregation |
@@ -201,12 +203,12 @@ Cell 수는 `Cell 0 — Project Imports`를 포함한다. 완료 lesson은 실�
 | 7 | 7.2 Paired Evaluation and Bootstrap | 6 | Planned | `████░` | paired statistics와 confidence interval |
 
 ```text
-완료 학습량       59 cells = 11 import + 48 learning
-남은 학습량       57 cells = 10 import + 47 learning
+완료 학습량       70 cells = 13 import + 57 learning
+남은 학습량       46 cells = 8 import + 38 learning
 예상 전체        116 cells = 21 import + 95 learning
 
-완료 lesson 진도  11/21 = 52.4%
-완료 cell 진도    59/116 = 50.9%
+완료 lesson 진도  13/21 = 61.9%
+완료 cell 진도    70/116 = 60.3%
 
 난이도 ██░░░      22 cells
 난이도 ███░░      60 cells
@@ -216,10 +218,12 @@ Cell 수는 `Cell 0 — Project Imports`를 포함한다. 완료 lesson은 실�
 ## Current progress
 
 ```text
-전체 Prerequisite  [███████████░░░░░░░░░] 52.4% (11/21 lessons)
-Part 4              [██████████░░░░░░░░░░] 50% (2/4 lessons)
+전체 Prerequisite  [█████████████░░░░░░░] 61.9% (13/21 lessons)
+Part 4              [████████████████████] 100% (4/4 lessons)
 ```
 
-Part 1–3과 Lesson 4.1–4.2의 scratch implementation이 sequential fresh-kernel validation을 통과했다. 다음은 Lesson 4.3에서 image/label의 spacing-aware resampling을 학습한다.
+Part 1–4의 scratch implementation이 sequential fresh-kernel validation을 통과했다. 다음은 Part 5의 Lesson 5.1에서 Cross-Entropy와 Soft Dice를 결합한다.
 
-최근 완료 notebook: [02_orientation_three_plane_viewing.ipynb](part04_medical_image_geometry_ct/02_orientation_three_plane_viewing.ipynb)
+최근 완료 notebook: [04_ct_hu_windowing_abdominal_anatomy.ipynb](part04_medical_image_geometry_ct/04_ct_hu_windowing_abdominal_anatomy.ipynb)
+
+다음 lesson: Part 5.1 Cross-Entropy plus Soft Dice
