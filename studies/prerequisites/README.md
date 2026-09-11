@@ -4,12 +4,15 @@
 
 이 과정은 완성 코드를 읽고 넘어가는 tutorial이 아니다. 마벨러스가 Tensor Shape와 Data Flow를 먼저 설명하고, 핵심 algorithm을 PyTorch와 작은 synthetic data로 직접 작성한 뒤 test와 결과를 repository에 남긴다.
 
-## 복습자료
+## Prerequisite 종료 — 2026-09-11
 
-- [Parts 1–7 Offline Handbook PDF](review/OLES3D_Offline_Handbook_Parts_1_7.pdf): 전체 21개 lesson의 오프라인 복습·예습 교재. 손계산, 주석 달린 코드, 42개 자가시험과 해설, 12문항 종합시험, 공식집 및 6주 학습 예시 포함. 예습 범위는 실습 완료 진도에 포함하지 않음.
-- [Offline Handbook 원고](review/OLES3D_Offline_Handbook_Parts_1_7.md) · [PDF 생성기](review/build_offline_handbook.py) · [예제 검증기](review/validate_offline_handbook.py) · [실행 검증 기록](review/OLES3D_Offline_Handbook_validation.json)
-- [Parts 1–4.2 Cumulative Review PDF](review/OLES3D_Parts_1_to_4_2_Cumulative_Review.pdf): Segmentation fundamentals부터 NIfTI affine과 orientation까지의 누적 복습 및 자가시험
-- [PDF generator](review/generate_cumulative_review_pdf.py): 한국어 font embedding과 ASCII-safe 수식 box를 적용한 복습자료 재생성 script
+사용자 요청으로 Part 1–7.1의 20개 lesson을 끝으로 선행 스터디를 종료하고 연구 구현 단계로 이동한다. 종료는 학습 과정과 코드 산출물의 마일스톤이며, 모든 개념의 독립적인 숙련이나 실제 nnU-Net 학습 성공을 보증하지 않는다. 실제 연구에서 필요한 개념은 해당 구현 시점에 다시 확인한다.
+
+- Notebook은 유지하고 `review` 복습 문서와 생성 도구는 저장소에서 제거했다.
+- 7.2 paired evaluation은 prerequisite에서 제외하며, 실제 실험 결과 분석 단계에서 다룬다.
+- 이번 출항 검증: 변경·신규 notebook 7개, 비어 있지 않은 code cell 41개를 notebook별 fresh project kernel에서 순차 실행하여 통과했다. 나머지 13개 notebook은 이번에 재실행하지 않았다.
+- 기존 코드와 저장된 출력은 보존하고, 6.3과 7.1의 미실행 cell에는 이번 실행 결과를 저장했다.
+- 전체 notebook의 저장된 exception output은 없다. 이번 재실행 범위 밖의 Part 1–3에는 execution count가 없는 비어 있지 않은 cell 9개가 남아 있으므로, 전체 111개 cell의 저장된 실행 증거가 완비됐다는 뜻은 아니다.
 
 ## 운영 규칙
 
@@ -113,9 +116,9 @@ Exit:
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 5.1 | Cross-Entropy plus Soft Dice | Scratch loss and gradient sanity check | Not started |
-| 5.2 | Surface Distance, NSD and HD95 | Synthetic physical-distance tests | Not started |
-| 5.3 | Empty Masks and Case Aggregation | Frozen edge-case test matrix | Not started |
+| 5.1 | Cross-Entropy plus Soft Dice | Scratch loss and gradient sanity check | Completed |
+| 5.2 | Surface Distance, NSD and HD95 | Synthetic physical-distance tests | Completed |
+| 5.3 | Empty Masks and Case Aggregation | Frozen edge-case test matrix | Completed |
 
 Exit:
 
@@ -129,9 +132,9 @@ Exit:
 
 | Lesson | Topic | Artifact | Status |
 |---|---|---|---|
-| 6.1 | Dataset Fingerprint, Plans and Preprocessing | Data Flow diagram and plan field table | Not started |
-| 6.2 | Default Foreground Oversampling | Source walkthrough and sampling simulation | Not started |
-| 6.3 | Deep Supervision and Sliding-Window Predictor | Output-scale and inference trace | Not started |
+| 6.1 | Dataset Fingerprint, Plans and Preprocessing | Data Flow diagram and plan field table | Completed |
+| 6.2 | Default Foreground Oversampling | Source walkthrough and sampling simulation | Completed |
+| 6.3 | Deep Supervision and Sliding-Window Predictor | Output-scale and inference trace | Completed |
 
 Exit:
 
@@ -139,24 +142,23 @@ Exit:
 - Default sampler의 case/foreground/class/center 결정을 source 수준에서 추적한다.
 - OLES3D가 변경할 경계와 변경하지 않을 경계를 정확히 지목한다.
 
-## Part 7 — Research Hygiene and Statistics
+## Part 7 — Research Hygiene
 
-예상: 4–5시간
+예상: 2–3시간
 
 | Lesson | Topic | Scratch artifact | Status |
 |---|---|---|---|
-| 7.1 | Split, Leakage and Reproducible Runs | Manifest schema and leakage assertions | Not started |
-| 7.2 | Paired Evaluation and Bootstrap | Patient/seed paired bootstrap simulation | Not started |
+| 7.1 | Split, Leakage and Reproducible Runs | Manifest schema and leakage assertions | Completed |
 
 Exit:
 
 - Patient/case, slice와 voxel을 statistical unit로 혼동하지 않는다.
 - Validation selection과 locked test의 경계를 지킨다.
-- Seed pairing, confidence interval과 allowed claim level을 설명한다.
+- Seed, experiment manifest와 reproducible run 규칙을 설명한다.
 
-## Final Readiness Examination
+## 연구 구현 중 재확인할 핵심 개념
 
-다음 일곱 항목을 notebook 없이 설명하고 작은 whiteboard example을 풀어야 한다.
+다음 일곱 항목은 관련 연구 코드를 구현할 때 설명과 작은 예제로 다시 확인한다. 이번 종료 선언이 별도 구술시험 통과를 의미하지는 않는다.
 
 1. Multi-class 3D segmentation Tensor Contract
 2. Cross-Entropy, Dice와 empty-mask rule
@@ -164,13 +166,13 @@ Exit:
 4. NIfTI affine, spacing, orientation과 resampling
 5. Patch training과 sliding-window inference
 6. nnU-Net default foreground oversampling
-7. Patient/seed-level paired evaluation과 leakage prevention
+7. Patient-level split, leakage prevention과 reproducible run
 
-통과 후에만 `environment/data baseline -> B0 -> failure analysis -> B1 -> OLES3D` 연구 구현으로 이동한다.
+다음 경로는 `environment/data baseline -> B0 -> failure analysis -> B1 -> OLES3D`다. 단계별 성공 조건을 확인하며 진행한다.
 
 ## 학습량과 난이도 통계
 
-Cell 수는 `Cell 0 — Project Imports`를 포함한다. 완료 lesson은 실제 notebook의 저장된 cell 수, 미완료 lesson은 사전에 고정한 계획 cell 수다.
+Cell 수는 실제 notebook의 비어 있지 않은 code cell 기준이며 `Cell 0 — Project Imports`를 포함한다. 5.3의 빈 trailing cell은 제외한다. Completed는 과정 종료 상태이며 개별 개념 숙련도의 점수가 아니다.
 
 난이도 표기:
 
@@ -193,37 +195,36 @@ Cell 수는 `Cell 0 — Project Imports`를 포함한다. 완료 lesson은 실�
 | 4 | 4.2 Orientation and Three-Plane Viewer | 5 | Completed | `███░░` | orientation, plane과 canonical RAS |
 | 4 | 4.3 Spacing-Aware Resampling | 5 | Completed | `██░░░` | Shape, spacing과 interpolation |
 | 4 | 4.4 CT HU, Windowing and Anatomy | 6 | Completed | `███░░` | CT intensity와 복부 의료영상 지식 |
-| 5 | 5.1 Cross-Entropy plus Soft Dice | 6 | Planned | `██░░░` | 앞에서 구현한 loss의 결합 |
-| 5 | 5.2 Surface Distance, NSD and HD95 | 6 | Planned | `████░` | surface metric과 physical distance |
-| 5 | 5.3 Empty Masks and Case Aggregation | 5 | Planned | `███░░` | 평가 예외 규칙과 aggregation |
-| 6 | 6.1 Fingerprint, Plans and Preprocessing | 5 | Planned | `████░` | nnU-Net v2 planning 내부 구조 |
-| 6 | 6.2 Foreground Oversampling | 6 | Planned | `███░░` | OLES3D와 직접 연결되는 sampling 기준선 |
-| 6 | 6.3 Deep Supervision and Predictor | 6 | Planned | `████░` | multi-scale Tensor와 inference flow |
-| 7 | 7.1 Split, Leakage and Reproducibility | 6 | Planned | `██░░░` | 연구 분할과 재현성 규율 |
-| 7 | 7.2 Paired Evaluation and Bootstrap | 6 | Planned | `████░` | paired statistics와 confidence interval |
+| 5 | 5.1 Cross-Entropy plus Soft Dice | 6 | Completed | `██░░░` | 앞에서 구현한 loss의 결합 |
+| 5 | 5.2 Surface Distance, NSD and HD95 | 6 | Completed | `████░` | surface metric과 physical distance |
+| 5 | 5.3 Empty Masks and Case Aggregation | 5 | Completed | `███░░` | 평가 예외 규칙과 aggregation |
+| 6 | 6.1 Fingerprint, Plans and Preprocessing | 6 | Completed | `████░` | nnU-Net v2 planning 내부 구조 |
+| 6 | 6.2 Foreground Oversampling | 6 | Completed | `███░░` | OLES3D와 직접 연결되는 sampling 기준선 |
+| 6 | 6.3 Deep Supervision and Predictor | 6 | Completed | `████░` | multi-scale Tensor와 inference flow |
+| 7 | 7.1 Split, Leakage and Reproducibility | 6 | Completed | `██░░░` | 연구 분할과 재현성 규율 |
 
 ```text
-완료 학습량       70 cells = 13 import + 57 learning
-남은 학습량       46 cells = 8 import + 38 learning
-예상 전체        116 cells = 21 import + 95 learning
+과정 산출물      111 cells = 20 import + 91 learning
+남은 학습량        0 cells
+실제 전체        111 cells = 20 import + 91 learning
 
-완료 lesson 진도  13/21 = 61.9%
-완료 cell 진도    70/116 = 60.3%
+과정 종료 진도    20/20 = 100.0%
+코드 준비 진도   111/111 = 100.0%
 
 난이도 ██░░░      22 cells
 난이도 ███░░      60 cells
-난이도 ████░      34 cells
+난이도 ████░      29 cells
 ```
 
 ## Current progress
 
 ```text
-전체 Prerequisite  [█████████████░░░░░░░] 61.9% (13/21 lessons)
-Part 4              [████████████████████] 100% (4/4 lessons)
+전체 Prerequisite  [████████████████████] 100.0% (20/20 lessons)
+Part 7              [████████████████████] 100.0% (1/1 lesson)
 ```
 
-Part 1–4의 scratch implementation이 sequential fresh-kernel validation을 통과했다. 다음은 Part 5의 Lesson 5.1에서 Cross-Entropy와 Soft Dice를 결합한다.
+Part 1–7.1 prerequisite 과정 종료. 이번 실행 검증 범위는 위 종료 기록의 7개 notebook이며, 전체 20개 notebook의 당일 재실행을 주장하지 않는다. 7.2 paired evaluation은 실제 실험 결과 확보 후 분석 단계에서 수행한다.
 
-최근 완료 notebook: [04_ct_hu_windowing_abdominal_anatomy.ipynb](part04_medical_image_geometry_ct/04_ct_hu_windowing_abdominal_anatomy.ipynb)
+최근 완료 notebook: [01_split_leakage_reproducible_runs.ipynb](part07_research_hygiene_statistics/01_split_leakage_reproducible_runs.ipynb)
 
-다음 lesson: Part 5.1 Cross-Entropy plus Soft Dice
+다음 단계: OLES3D environment/data baseline implementation

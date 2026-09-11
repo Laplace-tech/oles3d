@@ -6,11 +6,17 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 
 > 연구 상태: **Research freeze v0.1 — 문제·범위는 동결, novelty와 효과는 아직 미확인**
 >
-> 기준일: 2026-09-04
+> 연구 범위 기준일: 2026-09-04 / 스터디 종료: 2026-09-11
 >
 > 내부 투고 마감: 2026-10-22 KST
 >
-> 학회 공식 투고 마감: 2026-10-23
+> 학회 투고 마감: 기존 계획상 2026-10-23, 공식 공지 재확인 필요
+
+## 현재 단계
+
+**Prerequisite 종료 — Part 1–7.1, 20/20 lessons.** 선행 학습 노트북은 보존하고 실제 연구 구현으로 이동한다. 과정 종료는 개념 숙련이나 연구 성능의 보증이 아니다. 7.2 통계 분석은 실험 결과 확보 후 다룬다.
+
+2026-09-11 출항 검증에서 변경·신규 notebook 7개의 비어 있지 않은 code cell 41개를 fresh kernel로 순차 실행했다. [학습 종료 기록](studies/prerequisites/README.md)과 [실행 가능성·novelty 검토](research/feasibility/README.md)를 참고한다.
 
 ## 한 문장 연구 질문
 
@@ -59,8 +65,9 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 
 ## Repository
 
-- [Prerequisite study](studies/prerequisites/README.md): 구현 전에 완료할 전체 학습 경로와 현재 진행 상태
-- `studies/prerequisites/part*/`: 직접 작성하고 실행한 PyTorch notebook
+- [Prerequisite study](studies/prerequisites/README.md): 종료한 선행 학습 경로와 검증 기록
+- `studies/prerequisites/part*/`: 학습자가 작성한 코드와 요청에 따라 제공된 구현을 포함한 학습 notebook
+- [Feasibility review](research/feasibility/README.md): 환경·데이터 접근·novelty의 검증 범위와 남은 gate
 - `.gitignore`: medical image, patient metadata, model artifact와 credential의 commit 방지
 
 ## 현재 환경 snapshot
@@ -94,13 +101,11 @@ Research stack compatibility matrix를 정한 뒤 prerequisite environment와 �
 
 ## 바로 다음 gate
 
-2026-09-06까지 code를 많이 쓰는 것이 목표가 아니다. 다음 세 결정을 만드는 것이 목표다.
+1. Small subset 다운로드·checksum 확인과 실제 CT/mask geometry 검사
+2. 연구 환경 고정 및 실제 nnU-Net 최소 학습·추론 실행
+3. 실측 메모리·시간에 맞춘 비교 실험 규모 동결 후 B0 실행
 
-1. 가장 가까운 sampling 논문들의 claim–mechanism–cost 비교표 완성
-2. 지도교수 commitment와 one-page briefing
-3. environment compatibility, Git/run provenance와 scope freeze
-
-NIfTI geometry와 TotalSegmentator small-subset audit는 2026-09-11까지다. Plan, worker, update budget과 sampler IPC interface는 2026-09-14, unmodified-sampler reference와 controller constants는 2026-09-20까지 통과·동결돼야 full OLES3D implementation을 시작한다.
+데이터 접근 확인과 synthetic GPU probe만으로 이 gate들이 통과된 것은 아니다. 기존 일정은 계획이며, 공식 학회 마감 확인과 실제 처리량 측정 후 실행 일정을 확정한다.
 
 ## Data and clinical-use notice
 
