@@ -18,6 +18,13 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 
 2026-09-11 출항 검증에서 변경·신규 notebook 7개의 비어 있지 않은 code cell 41개를 fresh kernel로 순차 실행했다. [학습 종료 기록](studies/prerequisites/README.md)과 [실행 가능성·novelty 검토](research/feasibility/README.md)를 참고한다.
 
+2026-09-11 `Small-set Data Audit`에서 102개 CT와 선택 장기 mask 918개를
+검사했다. 누락·로딩·binary mask·physical-space geometry 오류 없이
+통과했으며, 9개 장기가 모두 non-empty인 case는 70개(train 66, val 4)였다.
+검사 기준과 재현 명령은 [data audit](research/data_audit/README.md)에
+공개한다. 이는 engineering gate 통과 기록이며 최종 연구 cohort 확정이나
+모델 성능 증거가 아니다.
+
 ## 한 문장 연구 질문
 
 고정된 training budget에서, 현재 모델의 장기별 `interior miss`, `boundary disagreement`, `exterior false positive`와 그 개선 속도를 이용해 다음 patch의 장기와 위치 유형을 정하면, default nnU-Net 및 단순한 sampling baseline보다 3D abdominal multi-organ segmentation의 정확도와 학습 효율을 개선할 수 있는가?
@@ -68,6 +75,7 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 - [Prerequisite study](studies/prerequisites/README.md): 종료한 선행 학습 경로와 검증 기록
 - `studies/prerequisites/part*/`: 학습자가 작성한 코드와 요청에 따라 제공된 구현을 포함한 학습 notebook
 - [Feasibility review](research/feasibility/README.md): 환경·데이터 접근·novelty의 검증 범위와 남은 gate
+- [Data audit](research/data_audit/README.md): small subset 구조·geometry·9-organ coverage 검사와 재현 CLI
 - `.gitignore`: medical image, patient metadata, model artifact와 credential의 commit 방지
 
 ## 현재 환경 snapshot
@@ -101,9 +109,9 @@ Research stack compatibility matrix를 정한 뒤 prerequisite environment와 �
 
 ## 바로 다음 gate
 
-1. Small subset 다운로드·checksum 확인과 실제 CT/mask geometry 검사
-2. 연구 환경 고정 및 실제 nnU-Net 최소 학습·추론 실행
-3. 실측 메모리·시간에 맞춘 비교 실험 규모 동결 후 B0 실행
+1. ✅ Small subset 다운로드·checksum 확인과 실제 CT/mask geometry 검사
+2. ▶ 연구 환경 고정 및 실제 nnU-Net 최소 학습·추론 실행
+3. ○ 실측 메모리·시간에 맞춘 비교 실험 규모 동결 후 B0 실행
 
 데이터 접근 확인과 synthetic GPU probe만으로 이 gate들이 통과된 것은 아니다. 기존 일정은 계획이며, 공식 학회 마감 확인과 실제 처리량 측정 후 실행 일정을 확정한다.
 
