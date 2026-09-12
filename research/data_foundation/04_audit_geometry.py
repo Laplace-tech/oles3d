@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -27,20 +28,27 @@ def parse_arguments() -> argparse.Namespace:
     """대표 case와 organ 선택."""
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset-root", type=Path, default=DATASET_ROOT)
     parser.add_argument("--cases", nargs="+", default=["s0011", "s1389"])
     parser.add_argument("--organs", nargs="+", default=list(SELECTED_ORGANS))
     parser.add_argument("--tolerance-mm", type=float, default=0.1)
-    return parser.parse_args()
+    arguments = parser.parse_args()
+    if not math.isfinite(arguments.tolerance_mm) or arguments.tolerance_mm < 0:
+        parser.error("--tolerance-mm은 유한한 0 이상 mm 값 필요")
+    return arguments
 
 
-def main() -> None:
+def main() -> int:
     """Shape, spacing, orientation, affine와 corner displacement 확인."""
 
     arguments = parse_arguments()
+    total_failures = 0
     for case_id in arguments.cases:
-        case_directory = DATASET_ROOT / case_id
+        case_directory = arguments.dataset_root / case_id
         ct_image = nib.load(case_directory / "ct.nii.gz")
-        ct_shape = tuple(int(size) for size in ct_image.shape[:3])
+        ct_shape = tuple(int(size) for size in ct_image.shape)
+        if len(ct_shape) != 3 or not all(size > 0 for size in ct_shape):
+            raise ValueError(f"3D CT Shape 필요: {ct_shape}")
         ct_spacing = np.asarray(ct_image.header.get_zooms()[:3])
         ct_orientation = nib.aff2axcodes(ct_image.affine)
 
@@ -62,7 +70,7 @@ def main() -> None:
             mask_image = nib.load(
                 case_directory / "segmentations" / f"{organ_name}.nii.gz"
             )
-            shape_match = tuple(mask_image.shape[:3]) == ct_shape
+            shape_match = tuple(mask_image.shape) == ct_shape
             spacing_match = np.allclose(
                 mask_image.header.get_zooms()[:3],
                 ct_spacing,
@@ -90,6 +98,7 @@ def main() -> None:
                 and displacement_mm <= arguments.tolerance_mm
             )
             pass_count += passed
+            total_failures += not passed
             warning_count += not affine_match
             print(
                 f"{organ_name:24s} {str(shape_match):7s} "
@@ -102,7 +111,9 @@ def main() -> None:
         print(f"Geometry pass: {pass_count}/{len(arguments.organs)}")
         print("Affine warnings:", warning_count)
         print(f"Tolerance: {arguments.tolerance_mm:.6f} mm")
+    print("Total geometry failures:", total_failures)
+    return 1 if total_failures else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

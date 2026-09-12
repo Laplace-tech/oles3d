@@ -1,236 +1,86 @@
 # OLES3D Prerequisite Course
 
-목표: OLES3D 구현 전에 2D classification 경험을 3D medical image segmentation 연구 역량으로 연결한다. 예상 mandatory core는 30–40 focused hours다.
+**과정 종료: 2026-09-11 — Part 1–7.1, 20개 lesson.**
 
-이 과정은 완성 코드를 읽고 넘어가는 tutorial이 아니다. 마벨러스가 Tensor Shape와 Data Flow를 먼저 설명하고, 핵심 algorithm을 PyTorch와 작은 synthetic data로 직접 작성한 뒤 test와 결과를 repository에 남긴다.
+2D classification 경험을 3D medical image segmentation의 Tensor/data flow,
+geometry, sampling, evaluation으로 연결한 scratch 학습 기록이다.
+과정 종료는 독립 숙련 인증이나 실제 nnU-Net 학습 성공을 의미하지 않는다.
+7.2 paired evaluation·bootstrap은 실제 연구 결과 분석 단계로 이관했다.
 
-## Prerequisite 종료 — 2026-09-11
+현재 연구 진도·일정·다음 단계는 [Research](../../research/README.md),
+학습·검증·자동화 방식은 [AGENTS.md](../../AGENTS.md) 한 곳에서 관리한다.
+이 문서에서는 종료한 학습 목차와 실행 근거만 유지한다.
 
-사용자 요청으로 Part 1–7.1의 20개 lesson을 끝으로 선행 스터디를 종료하고 연구 구현 단계로 이동한다. 종료는 학습 과정과 코드 산출물의 마일스톤이며, 모든 개념의 독립적인 숙련이나 실제 nnU-Net 학습 성공을 보증하지 않는다. 실제 연구에서 필요한 개념은 해당 구현 시점에 다시 확인한다.
+## 실행 근거
 
-- Notebook은 유지하고 `review` 복습 문서와 생성 도구는 저장소에서 제거했다.
-- 7.2 paired evaluation은 prerequisite에서 제외하며, 실제 실험 결과 분석 단계에서 다룬다.
-- 이번 출항 검증: 변경·신규 notebook 7개, 비어 있지 않은 code cell 41개를 notebook별 fresh project kernel에서 순차 실행하여 통과했다. 나머지 13개 notebook은 이번에 재실행하지 않았다.
-- 기존 코드와 저장된 출력은 보존하고, 6.3과 7.1의 미실행 cell에는 이번 실행 결과를 저장했다.
-- 전체 notebook의 저장된 exception output은 없다. 이번 재실행 범위 밖의 Part 1–3에는 execution count가 없는 비어 있지 않은 cell 9개가 남아 있으므로, 전체 111개 cell의 저장된 실행 증거가 완비됐다는 뜻은 아니다.
+- 종료 당시 변경·신규 notebook 7개, non-empty code cell 41개를 notebook별
+  fresh project kernel에서 순차 실행해 통과했다. 나머지 13개는 당시 재실행하지 않았다.
+- 6.3과 7.1의 미실행 cell에 검증 결과를 저장했고, 기존 learner code·output은 보존했다.
+- 2026-09-12 read-only 점검: 20개 notebook, non-empty code cell 111개,
+  저장된 exception output 0개. 모든 code cell의 Python 구문 검사 통과.
+- Part 1–3의 non-empty cell 9개에는 execution count가 없다. 저장된 오류가
+  없다는 사실은 전체 cell의 실행 성공 증명이 아니다. 이번 문서 정리에서는
+  notebook을 재실행하거나 변경하지 않았다.
 
-## 운영 규칙
+## 전체 목차·학습량
 
-1. 핵심 개념, Tensor Shape와 Data Flow를 먼저 설명한다.
-2. 마벨러스가 learner-sized scratch cell을 직접 입력하고 실행한다.
-3. Codex는 저장된 cell, output, assertion을 직접 검사한다.
-4. `스톱오버`에서는 변경된 학습 notebook을 fresh kernel로 순차 검증한다.
-   긴 학습은 관련 smoke test 범위를 명시하며 매 셀에서 kernel을 재시작하지 않는다.
-5. 실행/산출물 진도와 독립 숙련 증거를 분리한다. 확인 문제에는 정답과
-   해설을 제공하며 teach-back을 진도나 commit의 강제 조건으로 삼지 않는다.
-6. 함수와 Tensor helper에는 명확한 type annotation을 사용한다.
-7. medical image, patient metadata, checkpoint와 credential은 Git에 올리지 않는다.
+Cell 수는 `Cell 0 — Project Imports`를 포함한 non-empty code cell 기준이다.
+5.3의 빈 trailing cell은 제외했다. 난도는 학습 설계상의 추정치이며
+개인의 능력이나 숙련도 점수가 아니다.
 
-현재 행동 기준은 [Agent contract](../../AGENTS.md), 연구 재개 지점은
-[Research checkpoint](../../research/README.md)를 따른다. 아래 Completed는
-과정 종료 기록이며 독립 수행 능력을 새로 인증하는 표시가 아니다.
-
-## 학습과 연구 구현의 경계
-
-Prerequisite에서 허용하는 것:
-
-- 작은 synthetic tensor와 mask
-- Scratch metric/loss/sampling 구현
-- Minimal 2D/3D network
-- Tiny overfit
-- Synthetic NIfTI와 공개 training-only exploration case
-- nnU-Net source walkthrough
-
-Prerequisite 통과 전 금지하는 것:
-
-- OLES3D controller 구현
-- B0/B1/P 성능 비교
-- Validation/test 결과를 이용한 method 결정
-- 장시간 full-cohort training
-- 새로운 backbone, loss 또는 method 추가
-
-## Part 1 — Segmentation Fundamentals
-
-예상: 5–6시간
-
-| Lesson | Topic | Scratch artifact | Status |
-|---|---|---|---|
-| 1.1 | Classification-to-segmentation Tensor Contract | Shape table and `argmax` trace | Completed |
-| 1.2 | Softmax and Cross-Entropy per pixel/voxel | Stable softmax and NLL calculation | Completed |
-| 1.3 | Confusion counts, Dice and IoU | Perfect/disjoint/partial/empty tests | Completed |
-
-Exit:
-
-- `[B,C,D,H,W]`, `[B,K,D,H,W]`, `[B,D,H,W]`를 구분한다.
-- Multi-class softmax와 multi-label sigmoid를 구분한다.
-- Background-dominant accuracy가 왜 실패를 숨기는지 설명한다.
-- Dice를 TP/FP/FN과 set overlap 두 방식으로 유도한다.
-
-## Part 2 — U-Net from Scratch
-
-예상: 6–7시간
-
-| Lesson | Topic | Scratch artifact | Status |
-|---|---|---|---|
-| 2.1 | Convolution Shape and Receptive Field | Shape/receptive-field calculator | Completed |
-| 2.2 | Encoder, Decoder and Skip Connection | Minimal encoder-decoder blocks | Completed |
-| 2.3 | Minimal 2D U-Net and Tiny Overfit | Synthetic-shape overfit and overlay | Completed |
-
-Exit:
-
-- 각 U-Net stage의 spatial/channel 변화를 추적한다.
-- Skip Connection이 보존하는 정보와 concatenation 조건을 설명한다.
-- 1–2 sample을 의도적으로 overfit하고 실패 원인을 진단한다.
-
-## Part 3 — Volumetric Learning and Patch Mechanics
-
-예상: 5–6시간
-
-| Lesson | Topic | Scratch artifact | Status |
-|---|---|---|---|
-| 3.1 | Conv3d Tensor Flow and Memory | Minimal 3D block and memory estimate | Completed |
-| 3.2 | Crop, Padding and Patch Sampling | Uniform/foreground crop sampler | Completed |
-| 3.3 | Sliding-Window Inference | Overlap accumulation and normalization | Completed |
-
-Exit:
-
-- 2D와 3D 연산의 Shape 및 memory 차이를 설명한다.
-- Case selection과 patch-center selection을 구분한다.
-- Patch prediction을 full volume으로 합칠 때 overlap normalization이 필요한 이유를 설명한다.
-
-## Part 4 — Medical Image Geometry and CT
-
-예상: 7–9시간
-
-| Lesson | Topic | Scratch artifact | Status |
-|---|---|---|---|
-| 4.1 | NIfTI Array and Affine | Index-to-physical coordinate calculation | Completed |
-| 4.2 | Orientation and Three-Plane Viewing | Axial/coronal/sagittal viewer | Completed |
-| 4.3 | Spacing-Aware Resampling | Image/label interpolation and round trip | Completed |
-| 4.4 | CT HU, Windowing and Abdominal Anatomy | HU probes and training-case audit | Completed |
-
-Exit:
-
-- Array order와 physical coordinate system을 구분한다.
-- Shape, spacing, affine과 physical extent를 함께 검사한다.
-- Image와 label의 interpolation policy가 다른 이유를 증명한다.
-- Selected abdominal organs, laterality, partial FOV와 annotation ambiguity를 식별한다.
-
-## Part 5 — Losses and Physical-Space Evaluation
-
-예상: 5–6시간
-
-| Lesson | Topic | Scratch artifact | Status |
-|---|---|---|---|
-| 5.1 | Cross-Entropy plus Soft Dice | Scratch loss and gradient sanity check | Completed |
-| 5.2 | Surface Distance, NSD and HD95 | Synthetic physical-distance tests | Completed |
-| 5.3 | Empty Masks and Case Aggregation | Frozen edge-case test matrix | Completed |
-
-Exit:
-
-- Optimization loss와 report metric을 구분한다.
-- Millimeter tolerance와 voxel tolerance를 혼동하지 않는다.
-- Empty-reference/prediction rule과 patient/case macro aggregation을 설명한다.
-
-## Part 6 — nnU-Net v2 Literacy
-
-예상: 5–7시간
-
-| Lesson | Topic | Artifact | Status |
-|---|---|---|---|
-| 6.1 | Dataset Fingerprint, Plans and Preprocessing | Data Flow diagram and plan field table | Completed |
-| 6.2 | Default Foreground Oversampling | Source walkthrough and sampling simulation | Completed |
-| 6.3 | Deep Supervision and Sliding-Window Predictor | Output-scale and inference trace | Completed |
-
-Exit:
-
-- nnU-Net이 spacing, patch size와 batch size를 정하는 흐름을 설명한다.
-- Default sampler의 case/foreground/class/center 결정을 source 수준에서 추적한다.
-- OLES3D가 변경할 경계와 변경하지 않을 경계를 정확히 지목한다.
-
-## Part 7 — Research Hygiene
-
-예상: 2–3시간
-
-| Lesson | Topic | Scratch artifact | Status |
-|---|---|---|---|
-| 7.1 | Split, Leakage and Reproducible Runs | Manifest schema and leakage assertions | Completed |
-
-Exit:
-
-- Patient/case, slice와 voxel을 statistical unit로 혼동하지 않는다.
-- Validation selection과 locked test의 경계를 지킨다.
-- Seed, experiment manifest와 reproducible run 규칙을 설명한다.
-
-## 연구 구현 중 재확인할 핵심 개념
-
-다음 일곱 항목은 관련 연구 코드를 구현할 때 설명과 작은 예제로 다시 확인한다. 이번 종료 선언이 별도 구술시험 통과를 의미하지는 않는다.
-
-1. Multi-class 3D segmentation Tensor Contract
-2. Cross-Entropy, Dice와 empty-mask rule
-3. U-Net Data Flow와 Tiny Overfit의 목적
-4. NIfTI affine, spacing, orientation과 resampling
-5. Patch training과 sliding-window inference
-6. nnU-Net default foreground oversampling
-7. Patient-level split, leakage prevention과 reproducible run
-
-다음 경로는 `environment/data baseline -> B0 -> failure analysis -> B1 -> OLES3D`다. 단계별 성공 조건을 확인하며 진행한다.
-
-## 학습량과 난이도 통계
-
-Cell 수는 실제 notebook의 비어 있지 않은 code cell 기준이며 `Cell 0 — Project Imports`를 포함한다. 5.3의 빈 trailing cell은 제외한다. Completed는 과정 종료 상태이며 개별 개념 숙련도의 점수가 아니다.
-
-난이도 표기:
-
-- `██░░░`: 기초 개념을 기존 지식과 연결
-- `███░░`: 여러 개념과 Tensor/Data Flow를 함께 추적
-- `████░`: 수학, framework 내부 동작 또는 연구 통계의 주요 고비
-
-| Part | Lesson | Cell 수 | 상태 | 난이도 | 핵심 |
-|---|---|---:|---|---|---|
-| 1 | 1.1 Tensor Contract | 5 | Completed | `██░░░` | input, logits, target과 prediction Shape |
-| 1 | 1.2 Softmax and Cross-Entropy | 5 | Completed | `███░░` | 수치 안정성과 voxel-wise loss |
-| 1 | 1.3 Dice and IoU | 5 | Completed | `███░░` | TP/FP/FN과 empty-mask 처리 |
-| 2 | 2.1 Convolution and Receptive Field | 6 | Completed | `███░░` | convolution Shape와 receptive field 계산 |
-| 2 | 2.2 Encoder–Decoder and Skip | 5 | Completed | `███░░` | downsampling, upsampling과 feature 결합 |
-| 2 | 2.3 Minimal U-Net and Tiny Overfit | 6 | Completed | `████░` | end-to-end 학습과 failure diagnosis |
-| 3 | 3.1 Conv3D and Memory | 6 | Completed | `███░░` | 3D Tensor Flow와 activation memory |
-| 3 | 3.2 Crop, Padding and Sampling | 6 | Completed | `███░░` | patch 경계와 foreground sampling |
-| 3 | 3.3 Sliding-Window Inference | 5 | Completed | `████░` | overlap accumulation과 normalization |
-| 4 | 4.1 NIfTI and Affine | 5 | Completed | `███░░` | voxel index와 physical coordinate |
-| 4 | 4.2 Orientation and Three-Plane Viewer | 5 | Completed | `███░░` | orientation, plane과 canonical RAS |
-| 4 | 4.3 Spacing-Aware Resampling | 5 | Completed | `██░░░` | Shape, spacing과 interpolation |
-| 4 | 4.4 CT HU, Windowing and Anatomy | 6 | Completed | `███░░` | CT intensity와 복부 의료영상 지식 |
-| 5 | 5.1 Cross-Entropy plus Soft Dice | 6 | Completed | `██░░░` | 앞에서 구현한 loss의 결합 |
-| 5 | 5.2 Surface Distance, NSD and HD95 | 6 | Completed | `████░` | surface metric과 physical distance |
-| 5 | 5.3 Empty Masks and Case Aggregation | 5 | Completed | `███░░` | 평가 예외 규칙과 aggregation |
-| 6 | 6.1 Fingerprint, Plans and Preprocessing | 6 | Completed | `████░` | nnU-Net v2 planning 내부 구조 |
-| 6 | 6.2 Foreground Oversampling | 6 | Completed | `███░░` | OLES3D와 직접 연결되는 sampling 기준선 |
-| 6 | 6.3 Deep Supervision and Predictor | 6 | Completed | `████░` | multi-scale Tensor와 inference flow |
-| 7 | 7.1 Split, Leakage and Reproducibility | 6 | Completed | `██░░░` | 연구 분할과 재현성 규율 |
+| Part / Lesson | Notebook | Cells | 난도 | 복습의 핵심 |
+| --- | --- | ---: | --- | --- |
+| 1.1 | [Tensor Contract](part01_segmentation_fundamentals/01_tensor_contracts.ipynb) | 5 | ██░░░ | input·logits·target·prediction Shape |
+| 1.2 | [Softmax & Cross-Entropy](part01_segmentation_fundamentals/02_softmax_cross_entropy.ipynb) | 5 | ███░░ | 수치 안정성과 voxel-wise loss |
+| 1.3 | [Dice & IoU](part01_segmentation_fundamentals/03_dice_iou.ipynb) | 5 | ███░░ | TP/FP/FN·overlap·empty masks |
+| 2.1 | [Convolution & Receptive Field](part02_unet_from_scratch/01_convolution_shapes.ipynb) | 6 | ███░░ | convolution Shape·receptive field 계산 |
+| 2.2 | [Encoder–Decoder & Skip](part02_unet_from_scratch/02_encoder_decoder_skip.ipynb) | 5 | ███░░ | down/up sampling·feature 결합 |
+| 2.3 | [Minimal U-Net & Tiny Overfit](part02_unet_from_scratch/03_minimal_2d_unet_tiny_overfit.ipynb) | 6 | ████░ | 작은 synthetic data의 end-to-end 학습 |
+| 3.1 | [Conv3D & Memory](part03_volumetric_learning/01_conv3d_tensor_flow_memory.ipynb) | 6 | ███░░ | 3D activation·학습 peak memory |
+| 3.2 | [Crop, Padding & Sampling](part03_volumetric_learning/02_crop_padding_patch_sampling.ipynb) | 6 | ███░░ | patch 경계·uniform/foreground center |
+| 3.3 | [Sliding-Window Inference](part03_volumetric_learning/03_sliding_window_inference.ipynb) | 5 | ████░ | overlap accumulation·normalization |
+| 4.1 | [NIfTI Array & Affine](part04_medical_image_geometry_ct/01_nifti_array_affine.ipynb) | 5 | ███░░ | voxel index에서 physical coordinate로 변환 |
+| 4.2 | [Orientation & Three-Plane Viewing](part04_medical_image_geometry_ct/02_orientation_three_plane_viewing.ipynb) | 5 | ███░░ | array 축·방향·canonical RAS |
+| 4.3 | [Spacing-Aware Resampling](part04_medical_image_geometry_ct/03_spacing_aware_resampling.ipynb) | 5 | ██░░░ | Shape·spacing·image/label interpolation |
+| 4.4 | [CT HU, Windowing & Anatomy](part04_medical_image_geometry_ct/04_ct_hu_windowing_abdominal_anatomy.ipynb) | 6 | ███░░ | intensity·laterality·partial FOV |
+| 5.1 | [Cross-Entropy + Soft Dice](part05_losses_physical_space_evaluation/01_cross_entropy_soft_dice.ipynb) | 6 | ██░░░ | loss 결합·gradient 확인 |
+| 5.2 | [Surface Distance, NSD & HD95](part05_losses_physical_space_evaluation/02_surface_distance_nsd_hd95.ipynb) | 6 | ████░ | surface distance·mm tolerance |
+| 5.3 | [Empty Masks & Case Aggregation](part05_losses_physical_space_evaluation/03_empty_masks_case_aggregation.ipynb) | 5 | ███░░ | 예외 처리·case/class 집계 순서 |
+| 6.1 | [Fingerprint, Plans & Preprocessing](part06_nnunet_v2_literacy/01_dataset_fingerprint_plans_preprocessing.ipynb) | 6 | ████░ | nnU-Net planning·preprocessing flow |
+| 6.2 | [Default Foreground Oversampling](part06_nnunet_v2_literacy/02_default_foreground_oversampling.ipynb) | 6 | ███░░ | case·foreground·class·center 선택 |
+| 6.3 | [Deep Supervision & Predictor](part06_nnunet_v2_literacy/03_deep_supervision_predictor.ipynb) | 6 | ████░ | multi-scale Tensor·inference flow |
+| 7.1 | [Split, Leakage & Reproducibility](part07_research_hygiene_statistics/01_split_leakage_reproducible_runs.ipynb) | 6 | ██░░░ | statistical unit·manifest·seed |
 
 ```text
-과정 산출물      111 cells = 20 import + 91 learning
-남은 학습량        0 cells
-실제 전체        111 cells = 20 import + 91 learning
-
-과정 종료 진도    20/20 = 100.0%
-코드 준비 진도   111/111 = 100.0%
-
-난이도 ██░░░      22 cells
-난이도 ███░░      60 cells
-난이도 ████░      29 cells
+과정 종료       [████████████████████] 20/20 lessons
+코드 산출물     111 cells = 20 import + 91 learning
+난도 ██░░░      22 cells — 기초 개념 연결
+난도 ███░░      60 cells — 여러 개념·Tensor/data flow 추적
+난도 ████░      29 cells — 수학·framework 내부 동작의 주요 고비
 ```
 
-## Current progress
+## 연구에서 다시 사용할 핵심
 
-```text
-전체 Prerequisite  [████████████████████] 100.0% (20/20 lessons)
-Part 7              [████████████████████] 100.0% (1/1 lesson)
-```
+| 배운 부분 | 실제 연구에서 연결할 판단 |
+| --- | --- |
+| Part 1 | `[B,C,D,H,W]` input, `[B,K,D,H,W]` logits, `[B,D,H,W]` target/prediction 구분; background accuracy에 의존하지 않기 |
+| Part 2 | Encoder/decoder·skip의 Shape 추적; tiny overfit은 pipeline 점검이지 일반화 증명이 아님 |
+| Part 3 | Case 선택과 patch-center 선택 분리; full inference의 overlap 정규화; raw tensor와 peak VRAM 구분 |
+| Part 4 | 같은 Shape라도 affine 비교; image와 label interpolation 구분; non-empty와 장기 전체 포함 구분 |
+| Part 5 | 학습 loss와 보고 metric 분리; mm 단위 거리·empty 규칙·case-first 집계 명시 |
+| Part 6 | nnU-Net이 정하는 plan과 우리가 바꿀 sampler 경계 구분; 교육용 simulation과 실제 framework 실행 구분 |
+| Part 7 | Case/patient와 slice/voxel의 통계 단위 구분; validation 선택과 locked test의 경계 유지 |
 
-Part 1–7.1 prerequisite 과정 종료. 이번 실행 검증 범위는 위 종료 기록의 7개 notebook이며, 전체 20개 notebook의 당일 재실행을 주장하지 않는다. 7.2 paired evaluation은 실제 실험 결과 확보 후 분석 단계에서 수행한다.
+5.2의 작은 surface-point 예제는 개념 학습용이다. 연구 평가에서는 surface
+가중 방식, 양방향 distance 집계, percentile 정의, empty-mask 처리까지
+선택한 evaluator와 대조해야 한다. Notebook 함수를 그대로 복사했다고
+표준 구현과 동등한 metric이 되는 것은 아니다.
 
-최근 완료 notebook: [01_split_leakage_reproducible_runs.ipynb](part07_research_hygiene_statistics/01_split_leakage_reproducible_runs.ipynb)
+## 복습 방식
 
-다음 단계: OLES3D environment/data baseline implementation
+필요한 개념을 실제 연구 단계에서 작은 예제와 함께 다시 확인한다.
+명시적인 scratch study에서는 설명 → 채팅의 learner cell → 직접 입력·실행 →
+저장된 결과 확인 순서를 따른다. 연구 자동화·환경 수리는 별도 작업 방식이다.
+강제 구술시험이나 전체 과정 재시작은 연구 진입 조건이 아니다.
+
+다음 연구 위치는 [현재 checkpoint](../../research/README.md#checkpoint)에서 확인한다.

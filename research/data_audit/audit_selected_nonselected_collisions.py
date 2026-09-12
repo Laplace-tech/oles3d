@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
+import math
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -15,6 +18,7 @@ from audit_small_dataset import (
     SELECTED_ORGANS,
     calculate_corner_displacement_mm,
 )
+from v201_mask_manifest import SOURCE_COMMIT, TOTAL_V201_MASKS
 
 
 DEFAULT_DATASET_ROOT = Path(
@@ -93,7 +97,35 @@ def parse_arguments() -> argparse.Namespace:
         default=0.1,
         help="CT-mask 최대 corner displacement 허용치",
     )
-    return parser.parse_args()
+    arguments = parser.parse_args()
+    if not math.isfinite(arguments.corner_tolerance_mm) or arguments.corner_tolerance_mm < 0:
+        parser.error("--corner-tolerance-mm은 유한한 0 이상 mm 값 필요")
+    return arguments
+
+
+def verified_case_directories(dataset_root: Path) -> list[Path]:
+    """Metadata와 실제 case 목록의 일치·비어 있지 않음 검증."""
+
+    with (dataset_root / "meta.csv").open(encoding="utf-8-sig", newline="") as file:
+        reader = csv.DictReader(file, delimiter=";")
+        if "image_id" not in (reader.fieldnames or []):
+            raise ValueError("meta.csv에 image_id column 필요")
+        case_ids = [(row.get("image_id") or "").strip() for row in reader]
+    if not case_ids or any(re.fullmatch(r"s[0-9]+", item) is None for item in case_ids):
+        raise ValueError("Metadata에 비어 있지 않은 유효 case ID 목록 필요")
+    if len(case_ids) != len(set(case_ids)):
+        raise ValueError("Metadata의 중복 case ID")
+    directories = sorted(
+        path for path in dataset_root.iterdir()
+        if path.is_dir() and path.name.startswith("s")
+    )
+    expected, actual = set(case_ids), {path.name for path in directories}
+    if expected != actual:
+        raise ValueError(
+            f"Case inventory 불일치: missing={sorted(expected - actual)}, "
+            f"unexpected={sorted(actual - expected)}"
+        )
+    return directories
 
 
 def load_binary_mask(
@@ -108,7 +140,7 @@ def load_binary_mask(
     """Upstream `>0.5` foreground와 geometry·값 anomaly 반환."""
 
     mask_image = nib.load(mask_path)
-    mask_shape = tuple(int(size) for size in mask_image.shape[:3])
+    mask_shape = tuple(int(size) for size in mask_image.shape)
     if mask_shape != expected_shape:
         raise ValueError(
             f"Shape 불일치: {mask_path} {mask_shape} != {expected_shape}"
@@ -120,6 +152,8 @@ def load_binary_mask(
         volume_shape=expected_shape,
     )
     mask_array = np.asanyarray(mask_image.dataobj)
+    if not math.isfinite(corner_displacement_mm) or not np.all(np.isfinite(mask_array)):
+        raise ValueError(f"유한하지 않은 geometry 또는 mask value: {mask_path}")
     invalid_value_mask = (mask_array != 0) & (mask_array != 1)
     invalid_value_counts: dict[str, int] = {}
     if np.any(invalid_value_mask):
@@ -145,9 +179,16 @@ def audit_case(
     """한 case의 selected-only target 손실 voxel 측정."""
 
     ct_image = nib.load(case_directory / "ct.nii.gz")
-    ct_shape = tuple(int(size) for size in ct_image.shape[:3])
+    ct_shape = tuple(int(size) for size in ct_image.shape)
+    if len(ct_shape) != 3 or not all(size > 0 for size in ct_shape):
+        raise ValueError(f"3D CT Shape 필요: {ct_shape}")
     voxel_volume_mm3 = float(np.prod(ct_image.header.get_zooms()[:3]))
     segmentation_directory = case_directory / "segmentations"
+    actual_mask_names = {
+        path.name.removesuffix(".nii.gz")
+        for path in segmentation_directory.glob("*.nii.gz")
+    }
+    unexpected_masks = sorted(actual_mask_names - set(TOTAL_V201_MASKS))
 
     # 선택 9장기의 공식 v2 class ID(1~9)를 갖는 multiclass target 생성
     # [I, J, K], uint8; 뒤 class가 앞 class를 덮어쓰는 upstream helper 의미
@@ -193,10 +234,10 @@ def audit_case(
         ]
     elif nonselected_scope == "full-117":
         selected_names = set(SELECTED_ORGANS)
+        # 발견한 파일 수가 아니라 고정된 공식 목록의 모든 파일 검사
         nonselected_mask_paths = [
-            path
-            for path in sorted(segmentation_directory.glob("*.nii.gz"))
-            if path.name.removesuffix(".nii.gz") not in selected_names
+            segmentation_directory / f"{name}.nii.gz"
+            for name in sorted(set(TOTAL_V201_MASKS) - selected_names)
         ]
     else:
         raise ValueError(f"지원하지 않는 nonselected scope: {nonselected_scope}")
@@ -276,6 +317,8 @@ def audit_case(
         "nonselected_scope": nonselected_scope,
         "ct_shape_ijk": list(ct_shape),
         "nonselected_mask_count": len(nonselected_mask_paths),
+        "nonselected_masks_found": sum(path.is_file() for path in nonselected_mask_paths),
+        "unexpected_masks": unexpected_masks,
         "selected_foreground_voxels": selected_foreground_voxels,
         "affected_voxels": affected_voxels,
         "affected_fraction_of_selected_foreground": (
@@ -301,11 +344,12 @@ def audit_dataset(
 ) -> dict[str, Any]:
     """전체 small subset의 selected/nonselected 충돌 집계."""
 
-    case_directories = sorted(
-        path
-        for path in dataset_root.iterdir()
-        if path.is_dir() and path.name.startswith("s")
-    )
+    if not math.isfinite(corner_tolerance_mm) or corner_tolerance_mm < 0:
+        raise ValueError("corner_tolerance_mm은 유한한 0 이상 값 필요")
+    if nonselected_scope not in ("full-117", "organ-part-24"):
+        raise ValueError(f"지원하지 않는 nonselected scope: {nonselected_scope}")
+    case_directories = verified_case_directories(dataset_root)
+    expected_case_count = len(case_directories)
     if case_ids is not None:
         requested_case_ids = set(case_ids)
         available_case_ids = {path.name for path in case_directories}
@@ -319,6 +363,8 @@ def audit_dataset(
         if max_cases <= 0:
             raise ValueError("--max-cases는 양수여야 함")
         case_directories = case_directories[:max_cases]
+    if not case_directories:
+        raise ValueError("검사할 case가 없는 요청")
 
     case_results: list[dict[str, Any]] = []
     for case_index, case_directory in enumerate(case_directories, start=1):
@@ -366,15 +412,26 @@ def audit_dataset(
     cases_with_collision = sum(
         result["affected_voxels"] > 0 for result in case_results
     )
+    unexpected_masks = [
+        {"case_id": result["case_id"], "mask": name}
+        for result in case_results for name in result["unexpected_masks"]
+    ]
+    scope_complete = not skipped_nonselected_masks and not unexpected_masks
+    all_cases_inspected = len(case_results) == expected_case_count
     return {
         "dataset_root": str(dataset_root.resolve()),
         "case_count": len(case_results),
+        "expected_case_count": expected_case_count,
+        "inventory_verified": True,
+        "mask_manifest_source_commit": SOURCE_COMMIT,
+        "corner_tolerance_mm": corner_tolerance_mm,
+        "audit_case_scope": "all" if all_cases_inspected else "subset",
         "selected_organs": list(SELECTED_ORGANS),
         "nonselected_scope": nonselected_scope,
         "nonselected_organs": (
             list(ORGAN_PART_NONSELECTED)
             if nonselected_scope == "organ-part-24"
-            else "all masks outside selected nine"
+            else sorted(set(TOTAL_V201_MASKS) - set(SELECTED_ORGANS))
         ),
         "policy_comparison": {
             "A": "selected 9 masks merge; later selected class overwrites",
@@ -423,7 +480,9 @@ def audit_dataset(
         "value_anomalies": value_anomalies,
         "skipped_nonselected_mask_count": len(skipped_nonselected_masks),
         "skipped_nonselected_masks": skipped_nonselected_masks,
-        "audit_complete": len(skipped_nonselected_masks) == 0,
+        "unexpected_masks": unexpected_masks,
+        "scope_complete": scope_complete,
+        "audit_complete": scope_complete and all_cases_inspected,
         "case_results": case_results,
         "interpretation_limit": (
             "충돌은 두 변환 정책의 차이를 증명하지만 어느 class가 "
@@ -438,6 +497,10 @@ def print_summary(summary: dict[str, Any]) -> None:
     print("\n=== Selected vs Nonselected Collision Audit ===")
     print("Nonselected scope:           ", summary["nonselected_scope"])
     print("Cases inspected:             ", summary["case_count"])
+    print("Cases expected:              ", summary["expected_case_count"])
+    print("Case scope:                  ", summary["audit_case_scope"])
+    print("Scope complete:              ", summary["scope_complete"])
+    print("Unexpected masks:            ", len(summary["unexpected_masks"]))
     print("Cases with collision:        ", summary["cases_with_collision"])
     print(
         "Nonselected masks/case:      ",
@@ -496,7 +559,7 @@ def print_summary(summary: dict[str, Any]) -> None:
         print(f"  {pair_name:52s} {voxel_count:10d}")
 
 
-def main() -> None:
+def main() -> int:
     """감사 실행과 JSON 저장."""
 
     arguments = parse_arguments()
@@ -514,7 +577,9 @@ def main() -> None:
     )
     print_summary(summary)
     print("\nJSON output:                  ", arguments.output.resolve())
+    # 의도한 subset 검사는 성공 가능; 전체 감사 완료와 별도 판정
+    return 0 if summary["scope_complete"] else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -12,6 +12,10 @@ Policy revision: 2026-09-12 — explanation before automation, learner ownership
   Within repository guidance, this contract governs behavior; the checkpoint
   governs continuation; old chat summaries and memory are historical pointers.
 - Keep durable behavior here and mutable progress in `research/README.md`.
+  Use `research/README.md#roadmap` as the single current phase map. Preserve
+  established phase/artifact numbers; distinguish recovery work from research
+  progress. Explain and record authorized roadmap changes rather than silently
+  regrouping phases in chat. Published reports remain historical snapshots.
   Update existing rules when they conflict; do not accumulate contradictory
   addenda or copy the entire policy into multiple files.
 - These are OLES3D policies. Do not impose them on Maverick or other projects.
@@ -111,6 +115,13 @@ Policy revision: 2026-09-12 — explanation before automation, learner ownership
   reproduce it.
 - Perform long, repetitive, or failure-prone automation for the learner when
   appropriate, but leave a readable, typed, reusable script for durable work.
+  Before handing off an artifact-producing research command, save its source
+  under `research/` and map the source, output path, and exact CLI in
+  `research/README.md`. A chat-only heredoc is not a durable research deliverable.
+  Include output-directory creation in replay commands. Keep user-reserved
+  dataset execution separate from agent-authored code and synthetic checks.
+  Prefer direct Bash/Python commands with explicit output paths in the README;
+  do not introduce a step-dispatch wrapper merely to shorten those commands.
   Do not paste large mechanical implementations into chat merely to make the
   learner execute them manually.
 - Keep the learner responsible for the intellectual core: dataset assumptions,
@@ -135,6 +146,10 @@ Policy revision: 2026-09-12 — explanation before automation, learner ownership
   question.
 - Before ending a work session, state what was learned, what evidence was
   produced, what remains uncertain, and the exact next gate.
+- When requested to prepare a research review report/PDF, connect each step's
+  question, decisive operation, actual output, interpretation/limits, source
+  script, and reproduction CLI. Distinguish expected examples from saved runs;
+  a request about future report content does not itself request PDF generation.
 
 ## Notebook runtime
 
