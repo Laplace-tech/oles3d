@@ -18,12 +18,16 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 
 2026-09-11 출항 검증에서 변경·신규 notebook 7개의 비어 있지 않은 code cell 41개를 fresh kernel로 순차 실행했다. [학습 종료 기록](studies/prerequisites/README.md)과 [실행 가능성·novelty 검토](research/feasibility/README.md)를 참고한다.
 
-2026-09-11 `Small-set Data Audit`에서 102개 CT와 선택 장기 mask 918개를
-검사했다. 누락·로딩·binary mask·physical-space geometry 오류 없이
-통과했으며, 9개 장기가 모두 non-empty인 case는 70개(train 66, val 4)였다.
-검사 기준과 재현 명령은 [data audit](research/data_audit/README.md)에
-공개한다. 이는 engineering gate 통과 기록이며 최종 연구 cohort 확정이나
-모델 성능 증거가 아니다.
+2026-09-12 확장한 `Small-set Data Audit`에서 102개 CT와 선택 장기 mask
+918개를 검사했다. 누락·로딩·binary mask·physical-space geometry 오류는
+없고, 9개 장기가 모두 non-empty인 case는 70개(train 66, val 4)였다.
+38개 case의 41,336 voxel에서 선택 장기 mask overlap도 발견했다. 상위
+case 정밀 검사 후 upstream helper의 later-class overwrite를 변환 후보로
+검토 중이다. 선택 9개만 합치는 방식과 전체 class를 합친 뒤 remap하는
+방식의 동등성, 실제 데이터 생성 이력은 확인되지 않았다. 이전의 규칙
+선정 표현을 제안 상태로 정정했다. 검사 기준과 재현 명령은
+[data audit](research/data_audit/README.md)에 공개한다. 이는 데이터 구조
+감사 기록이며 최종 연구 cohort 확정이나 모델 성능 증거가 아니다.
 
 ## 한 문장 연구 질문
 
@@ -72,10 +76,14 @@ OLES3D는 TotalSegmentator v2의 공개 CT를 이용해, nnU-Net v2의 network a
 
 ## Repository
 
+- [Research checkpoint](research/README.md): 현재 gate, 미해결 판단과 관찰된 학습 증거
+- [Agent contract](AGENTS.md): 설명 우선 지도 방식과 장기 작업 정책
 - [Prerequisite study](studies/prerequisites/README.md): 종료한 선행 학습 경로와 검증 기록
 - `studies/prerequisites/part*/`: 학습자가 작성한 코드와 요청에 따라 제공된 구현을 포함한 학습 notebook
 - [Feasibility review](research/feasibility/README.md): 환경·데이터 접근·novelty의 검증 범위와 남은 gate
 - [Data audit](research/data_audit/README.md): small subset 구조·geometry·9-organ coverage 검사와 재현 CLI
+- [Phase 1 review codebook](research/data_foundation_review/README.md): 단계별 hands-on script와 저장 산출물 대응표
+- [Prerequisite–Phase 1 복습 PDF](research/reports/2026-09-12_prerequisite_to_phase1_review.pdf): prerequisite 핵심 개념과 1.1–1.6d 실측 결과를 합친 오늘자 학습 자료
 - `.gitignore`: medical image, patient metadata, model artifact와 credential의 commit 방지
 
 ## 현재 환경 snapshot
@@ -110,8 +118,11 @@ Research stack compatibility matrix를 정한 뒤 prerequisite environment와 �
 ## 바로 다음 gate
 
 1. ✅ Small subset 다운로드·checksum 확인과 실제 CT/mask geometry 검사
-2. ▶ 연구 환경 고정 및 실제 nnU-Net 최소 학습·추론 실행
-3. ○ 실측 메모리·시간에 맞춘 비교 실험 규모 동결 후 B0 실행
+2. ✅ 선택 장기 overlap 정밀 검사 — 발생 원인 자체는 미확정
+3. ✅ selected-nine, full-117, organ-part-24 정책 차이 정량화
+4. ▶ Phase 1.7 cohort eligibility·leakage rule·patient-level split 동결
+5. ○ multiclass label policy 동결 후 converter 검증
+6. ○ nnU-Net 최소 학습·추론 및 실측 예산에 맞춘 B0 실행
 
 데이터 접근 확인과 synthetic GPU probe만으로 이 gate들이 통과된 것은 아니다. 기존 일정은 계획이며, 공식 학회 마감 확인과 실제 처리량 측정 후 실행 일정을 확정한다.
 

@@ -7,6 +7,7 @@ import csv
 import json
 import time
 from collections import Counter
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -92,13 +93,13 @@ def calculate_corner_displacement_mm(
 
     depth, height, width = volume_shape[:3]
     corners_ijk = np.asarray(
-        [
-            [0, 0, 0],
-            [depth - 1, 0, 0],
-            [0, height - 1, 0],
-            [0, 0, width - 1],
-            [depth - 1, height - 1, width - 1],
-        ],
+        list(
+            product(
+                (0, depth - 1),
+                (0, height - 1),
+                (0, width - 1),
+            )
+        ),
         dtype=np.float64,
     )
 
@@ -181,6 +182,11 @@ def audit_dataset(
     nonempty_counts: Counter[str] = Counter()
     nonempty_count_histogram: Counter[int] = Counter()
     all_selected_organs_by_split: Counter[str] = Counter()
+    overlap_pair_voxels: Counter[str] = Counter()
+    overlap_pair_cases: Counter[str] = Counter()
+    overlap_cases: list[dict[str, Any]] = []
+    total_overlap_voxels = 0
+    total_foreground_union_voxels = 0
     orientation_counts: Counter[str] = Counter()
     shape_values: list[tuple[int, int, int]] = []
     spacing_values: list[tuple[float, float, float]] = []
@@ -214,8 +220,14 @@ def audit_dataset(
         orientation_counts[orientation] += 1
 
         nonempty_organs_in_case = 0
+        # 선택 장기별 존재 bit를 voxel마다 누적하기 위한 map
+        # Tensor equivalent: [I, J, K], bit k = organ k의 foreground 여부
+        organ_membership_bits = np.zeros(
+            ct_shape,
+            dtype=np.uint16,
+        )
 
-        for organ_name in SELECTED_ORGANS:
+        for organ_index, organ_name in enumerate(SELECTED_ORGANS):
             mask_path = (
                 case_directory
                 / "segmentations"
@@ -295,10 +307,71 @@ def audit_dataset(
                     nonempty_counts[organ_name] += 1
                     nonempty_organs_in_case += 1
 
+                if mask_shape == ct_shape:
+                    foreground_mask = mask_array != 0
+                    current_bit = np.uint16(1 << organ_index)
+                    # Boolean indexing 복사 없이 현재 장기의 bit만 설정
+                    np.bitwise_or(
+                        organ_membership_bits,
+                        current_bit,
+                        out=organ_membership_bits,
+                        where=foreground_mask,
+                    )
+
             except Exception as error:
                 load_errors.append(
                     f"{case_id}/{organ_name}: {error}"
                 )
+
+        # 두 개 이상의 bit가 켜진 voxel만 class collision으로 선택
+        overlap_mask = (
+            organ_membership_bits
+            & (organ_membership_bits - np.uint16(1))
+        ) != 0
+        overlap_codes = organ_membership_bits[overlap_mask]
+        case_overlap_voxels = int(overlap_codes.size)
+        foreground_union_voxels = int(
+            np.count_nonzero(organ_membership_bits)
+        )
+        total_foreground_union_voxels += foreground_union_voxels
+
+        if case_overlap_voxels > 0:
+            unique_codes, code_counts = np.unique(
+                overlap_codes,
+                return_counts=True,
+            )
+            case_overlap_pairs: set[str] = set()
+
+            # 각 overlap bit code를 구성하는 모든 장기 pair 집계
+            for code, code_count in zip(unique_codes, code_counts):
+                member_indices = [
+                    member_index
+                    for member_index in range(len(SELECTED_ORGANS))
+                    if int(code) & (1 << member_index)
+                ]
+                for left_position, left_index in enumerate(member_indices):
+                    for right_index in member_indices[left_position + 1 :]:
+                        pair_name = (
+                            f"{SELECTED_ORGANS[left_index]} + "
+                            f"{SELECTED_ORGANS[right_index]}"
+                        )
+                        overlap_pair_voxels[pair_name] += int(code_count)
+                        case_overlap_pairs.add(pair_name)
+
+            for pair_name in case_overlap_pairs:
+                overlap_pair_cases[pair_name] += 1
+
+            overlap_cases.append(
+                {
+                    "case_id": case_id,
+                    "overlap_voxels": case_overlap_voxels,
+                    "foreground_union_voxels": foreground_union_voxels,
+                    "overlap_fraction": (
+                        case_overlap_voxels / foreground_union_voxels
+                    ),
+                }
+            )
+            total_overlap_voxels += case_overlap_voxels
 
         nonempty_count_histogram[nonempty_organs_in_case] += 1
 
@@ -351,6 +424,23 @@ def audit_dataset(
         "geometry_error_count": len(geometry_errors),
         "affine_warning_count": len(affine_warnings),
         "invalid_binary_mask_count": len(invalid_binary_masks),
+        "mask_overlap_case_count": len(overlap_cases),
+        "mask_overlap_total_voxels": total_overlap_voxels,
+        "selected_foreground_union_voxels": (
+            total_foreground_union_voxels
+        ),
+        "mask_overlap_global_fraction": (
+            total_overlap_voxels / total_foreground_union_voxels
+            if total_foreground_union_voxels > 0
+            else 0.0
+        ),
+        "mask_overlap_pair_voxels": counter_to_sorted_dictionary(
+            overlap_pair_voxels
+        ),
+        "mask_overlap_pair_cases": counter_to_sorted_dictionary(
+            overlap_pair_cases
+        ),
+        "mask_overlap_cases": overlap_cases,
         "all_selected_organs_case_count": int(
             nonempty_count_histogram[len(SELECTED_ORGANS)]
         ),
@@ -406,6 +496,12 @@ def print_summary(summary: dict[str, Any]) -> None:
     print("Geometry errors:         ", summary["geometry_error_count"])
     print("Affine warnings:         ", summary["affine_warning_count"])
     print("Invalid binary masks:    ", summary["invalid_binary_mask_count"])
+    print("Mask overlap cases:      ", summary["mask_overlap_case_count"])
+    print("Mask overlap voxels:     ", summary["mask_overlap_total_voxels"])
+    print(
+        "Global overlap fraction: ",
+        f"{summary['mask_overlap_global_fraction']:.8f}",
+    )
     print("Cases with all 9 organs: ", summary["all_selected_organs_case_count"])
     print("All-9 cases by split:    ", summary["all_selected_organs_by_split"])
 
@@ -447,7 +543,17 @@ def print_summary(summary: dict[str, Any]) -> None:
             f"{summary['corner_tolerance_mm']:.6f} mm",
         )
 
-    hard_failure_count = sum(
+    if summary["mask_overlap_pair_voxels"]:
+        print_counter_section(
+            "Overlapping organ pairs (pairwise voxel counts):",
+            summary["mask_overlap_pair_voxels"],
+        )
+        print_counter_section(
+            "Overlapping organ pairs (affected case counts):",
+            summary["mask_overlap_pair_cases"],
+        )
+
+    integrity_failure_count = sum(
         int(summary[key])
         for key in (
             "missing_file_count",
@@ -456,7 +562,18 @@ def print_summary(summary: dict[str, Any]) -> None:
             "invalid_binary_mask_count",
         )
     )
-    print("\nAudit verdict:           ", "PASS" if hard_failure_count == 0 else "FAIL")
+    print(
+        "\nData integrity verdict:  ",
+        "PASS" if integrity_failure_count == 0 else "FAIL",
+    )
+    print(
+        "Multiclass merge gate:   ",
+        (
+            "REVIEW REQUIRED"
+            if summary["mask_overlap_case_count"] > 0
+            else "PASS"
+        ),
+    )
 
 
 def main() -> None:

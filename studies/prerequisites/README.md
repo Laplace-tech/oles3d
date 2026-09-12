@@ -19,10 +19,16 @@
 1. 핵심 개념, Tensor Shape와 Data Flow를 먼저 설명한다.
 2. 마벨러스가 learner-sized scratch cell을 직접 입력하고 실행한다.
 3. Codex는 저장된 cell, output, assertion을 직접 검사한다.
-4. `스톱오버`에서는 fresh kernel로 전체 notebook을 다시 실행한다.
-5. teach-back과 runtime 검증을 모두 통과한 progress만 commit한다.
+4. `스톱오버`에서는 변경된 학습 notebook을 fresh kernel로 순차 검증한다.
+   긴 학습은 관련 smoke test 범위를 명시하며 매 셀에서 kernel을 재시작하지 않는다.
+5. 실행/산출물 진도와 독립 숙련 증거를 분리한다. 확인 문제에는 정답과
+   해설을 제공하며 teach-back을 진도나 commit의 강제 조건으로 삼지 않는다.
 6. 함수와 Tensor helper에는 명확한 type annotation을 사용한다.
 7. medical image, patient metadata, checkpoint와 credential은 Git에 올리지 않는다.
+
+현재 행동 기준은 [Agent contract](../../AGENTS.md), 연구 재개 지점은
+[Research checkpoint](../../research/README.md)를 따른다. 아래 Completed는
+과정 종료 기록이며 독립 수행 능력을 새로 인증하는 표시가 아니다.
 
 ## 학습과 연구 구현의 경계
 
