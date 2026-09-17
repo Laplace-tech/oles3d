@@ -34,12 +34,16 @@ disagreement, exterior false positive를 구분해 학습 자원을 배분하는
 - Data: TotalSegmentator v2.0.1 공개 데이터. Small은 점검용 subset이며 full과 독립된 데이터가 아니다.
 - 목표 장기: spleen, 양쪽 kidney, gallbladder, liver, stomach, pancreas, 양쪽 adrenal gland.
 - Framework: nnU-Net v2, patch-based 3D training. 학습·평가 cohort와 구체적인 plan은 별도 결정.
-- 비교 축: default sampler(B0), matched static sampler(B1), 제안 adaptive sampler(P).
+- 핵심 비교 축: default sampler(B0), matched-static sampler(B1), organ-wise adaptive
+  sampler(A1), organ-wise error-type adaptive sampler(P).
 - 통제 대상: label, split, architecture, loss, augmentation, 초기화와 update 예산.
 - 평가 방향: case-first selected-organ macro Dice와 장기별 결과, 실행 시간·VRAM·sampler 비용.
+- 실행 범위: B0/B1/A1/P를 seed `55254` 한 번씩 실행하는 single-seed proof-of-concept.
 
-새 backbone·attention·loss를 동시에 추가하지 않는다. Error-type 구분이나
-learning progress의 개별 기여는 해당 요소를 제거한 비교가 있어야 주장한다.
+새 backbone·attention·loss를 동시에 추가하지 않는다.
+Candidate-pool 구조는 B0/B1, organ-wise adaptation은 B1/A1, error-type 구분은 A1/P의
+직접 비교로 평가한다.
+Single-seed 결과로 training randomness에 대한 안정성이나 평균 성능을 주장하지 않는다.
 정확한 비교군, empty-mask 처리와 평가 규칙은 [연구 결정 표](research/README.md#decisions)를 따른다.
 
 ## 저장소 구조
