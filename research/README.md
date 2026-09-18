@@ -14,7 +14,7 @@ Prerequisite      CLOSED — 20개 lesson 종료, 독립 숙련 인증 아님
 Phase 1          COMPLETE — label/cohort/split manifest 생성
   1.7c          Full 1,228 cases 감사 완료 / 602 cases all-nine nonempty
   1.7d          eligible 602 cases manifest 동결 / train 525, val 28, test 49
-Phase 2          CURRENT — nnU-Net baseline 및 compute feasibility
+Phase 2          COMPLETE — nnU-Net baseline 및 compute feasibility
   2.1a          nnU-Net v2.8.1 선택
   2.1b          dependency resolution 완료 / torchvision 0.28.0 명시 고정
   2.1c          설치·import·CUDA·CLI 검증 완료
@@ -36,7 +36,20 @@ Phase 2          CURRENT — nnU-Net baseline 및 compute feasibility
   2.6c          Local B0 20k 완료·22.25k 개발 연장 중단 / main 결과로 미사용
   2.6d          10k/20k official val 28-case 비교 완료 / 30k 연장 결정
   2.6e          RunPod runtime·payload·100-update·main-trainer smoke 완료
-B0 / B1 / A1 / P core 4 runs 후 multi-seed replication 미구현·미검증
+  2.6f          RunPod clean main B0 30k 완료 / 67분 14초
+  2.6g          Official val 28-case 완료 / case-first macro Dice 0.923552
+Phase 3          CURRENT — B1/A1/P 공통 sampler contract 설계
+  3.1           Error-type semantic partition contract synthetic 검증 완료
+  3.1b          B0 30k train pool audit 8-case 완료 / tolerance 1.5 mm 선택
+  3.2a          B1 static allocation contract synthetic 검증 완료
+  3.2b          Candidate snapshot→nnU-Net bbox integration smoke 완료
+  3.2c          Online observer→bounded reservoir actual-checkpoint smoke 완료
+  3.2d          B1 snapshot→augmentation→optimizer actual-step smoke 완료
+  3.2e          One-voxel morphology fast path EDT-equivalence 검증 완료
+  3.2f          Shared train-only observer schedule 동결·coverage 감사 완료
+  3.2g          Active multi-worker online refresh→guided update smoke 완료
+Phase 3.2 B1 implementation COMPLETE; B1 30k 성능 실험은 Phase 4에서 실행
+A1 / P와 multi-seed replication은 미구현·미검증
 ```
 
 - Small: 잘못된 Full 해제 과정에서 `small/`도 소실된 상태를 확인. 공식 MD5·CRC를
@@ -239,8 +252,122 @@ B0 / B1 / A1 / P core 4 runs 후 multi-seed replication 미구현·미검증
   B0 30k update loop 추정은 약 `1.37 h`이며 validation과 B1/A1/P refresh 비용은 별도다.
   `nnUNetTrainerOLES3DB0Main`의 2-update cloud smoke도 loss `2.8223→2.7258`, steady step
   `0.118 s`, peak reserved `8,592 MiB`로 통과했다. Production runner는 dirty Git source에서
-  실제로 30k 시작을 거부했다. 다음 gate는 이 변경을 commit/push한 뒤 source와 payload
-  manifest를 다시 동기화하고 main B0를 clean start하는 것이다.
+  실제로 30k 시작을 거부했다. 이후 변경을 commit/push하고 source·payload manifest를
+  다시 동기화한 뒤 clean main B0를 시작했다.
+- Phase 2.6f 사용자 실행·agent 검증 결과: source commit `e33148d`, seed `55254`, frozen
+  train 525, patch `[160,112,128]`, batch 2, default foreground oversampling 조건의 clean main
+  B0를 RunPod RTX 4090에서 30,000 updates까지 완료했다. 120 epochs의 wall time은
+  67분 13.7초였고 `checkpoint_030000.pth`와 final checkpoint가 생성됐다. 마지막 best EMA
+  pseudo Dice는 0.9174였으나 train-cohort patch health signal이므로 official 성능으로
+  사용하지 않는다.
+- Phase 2.6g agent 실행·검증 결과: `checkpoint_030000.pth`를 frozen official validation
+  28 cases에 sliding-window step 0.5, Gaussian weighting, mirroring TTA, CPU logit accumulation으로
+  평가했다. 28/28 prediction, Shape·affine·finite metric 검사를 통과했고 exception·OOM은 0이다.
+  Primary case-first macro Dice는 `0.923552`다. Organ mean Dice는 spleen `0.976364`,
+  right/left kidney `0.969859/0.966565`, gallbladder `0.798901`, liver `0.982871`, stomach
+  `0.943926`, pancreas `0.906825`, right/left adrenal `0.881230/0.885431`이다. Gallbladder는
+  1/28 case에서 empty prediction이었다. 이는 B0 1-seed validation baseline이며 held-out test
+  성능, run variability, B1/A1/P 대비 우월성의 근거가 아니다. Remote/local result tree와
+  artifact의 rsync checksum 차이 0, checkpoint SHA-256
+  `1f64688ad9b2a85ef7ee10704684309a6bb84e2f9458291d7f12a03043ba248e`을 확인했다.
+- Phase 2 decision: 공통 training budget을 30,000 updates로 선택한다. Phase 3의 B1/A1/P는
+  동일 data·network·loss·augmentation·batch·30k budget을 유지하고 sampling policy만 바꾼다.
+  Phase 3 구현·local audit 동안 GPU Pod는 정지 가능하며 remote smoke 또는 controlled run
+  직전에만 다시 배포한다.
+- Phase 3.1 agent 구현·synthetic 검증 결과: 한 장기의 GT/prediction XOR disagreement를
+  `interior_miss`, `boundary_disagreement`, `exterior_false_positive`의 상호 배타적인 세
+  pool로 나누는 physical-space contract를 구현했다. `[D,H,W]` integer label과
+  `(D,H,W)` mm spacing을 입력으로 사용하며 EDT에 spacing을 적용한다. 1.5 mm isotropic
+  synthetic volume과 3.0 mm tolerance에서 의도한 오류 수 `1/2/1`, 세 pool overlap 0,
+  XOR 완전 포괄, perfect-prediction empty, absent-GT prediction의 exterior 분류를 통과했다.
+  Anisotropic-spacing 반례와 invalid-spacing 거부도 별도로 통과했다. 이는 semantic partition
+  코드의 근거이며, 실제 train CT의 pool coverage·refresh cadence·sampling 효과의 근거는 아니다.
+  3.0 mm tolerance는 실제 train-case non-degeneracy audit 전까지 proposed 상태다.
+- Phase 3.2a agent 구현·synthetic 검증 결과: B1은 오류 후보가 있는 장기를 후보 voxel 수와
+  무관하게 fixed-uniform으로 선택하고, 선택 장기의 세 error-type 통합 pool에서 voxel을
+  균등 선택한다. Candidate 100개인 organ 1과 1,000개인 organ 2를 60,000회 추출한 결과
+  선택 빈도는 `0.4961/0.5039`였고 empty organ 미선택, all-empty `None` fallback, 동일 seed
+  selection replay를 통과했다. Organ 내부 type 빈도 `0.0994/0.2022/0.6984`는 pool voxel
+  비율 `0.1/0.2/0.7`을 따른다. 이는 allocation primitive의 근거이며 nnU-Net crop·training
+  integration이나 실제 성능의 근거가 아니다.
+- Phase 3.1b agent 실행 결과: frozen train ID sorted-prefix 첫 case `s0004`를 B0 30k로
+  full-volume inference하고 1.5/3.0/4.5 mm의 organ×error-type count를 계산했다. Macro Dice
+  `0.889550`, inference `34.28 s`, 3-tolerance×9-organ audit `1.63 s`로 exit 0이었다. 3.0 mm에서
+  boundary pool은 9장기 모두 non-empty였으나 일부 well-learned organ의 interior/exterior pool은
+  empty였다. 이는 실행 경로와 fallback 필요성의 근거일 뿐 1 case로 tolerance를 동결하지 않는다.
+  최초 smoke는 external trainer의 cwd-dependent import 때문에 inference 전에 실패했고 prediction은
+  생성되지 않았다. Trainer import를 package/external-discovery 양쪽에서 동작하도록 최소 수정한 뒤
+  두 import 경로와 실제 inference를 검증했다.
+- Phase 3.1b 사용자 실행·agent 검증 결과: sorted frozen train IDs 첫 8 cases를 동일 B0 30k
+  checkpoint SHA로 추론했다. 8/8 완료, inference `225.68 s`, error audit `10.83 s`, 전체
+  `4m03s`였고 case macro Dice mean/range는 `0.921028 / 0.861876–0.963665`였다. 이는
+  train calibration 수치이며 validation/test 성능으로 사용하지 않는다. 72 organ-case 중
+  interior/boundary/exterior non-empty 수는 1.5 mm에서 `56/72, 72/72, 68/72`, 3.0 mm에서
+  `37/72, 72/72, 48/72`, 4.5 mm에서 `27/72, 72/72, 32/72`였다. 동결 spacing 한 voxel과
+  같고 세 유형을 가장 덜 붕괴시키는 `1.5 mm`를 sampler 내부 surface-band tolerance로
+  선택한다. 이는 NSD의 임상 tolerance 선택이 아니다.
+- Phase 3 loader contract 관찰: B0의 설정값은 foreground oversampling `0.33`이지만
+  batch size 2와 `_oversample_last_XX_percent`의 round 규칙에서는 마지막 1/2 slot이 실제
+  force-foreground가 된다. B1/A1/P는 공정성을 위해 이 동일 slot만 guided candidate로
+  교체하며 나머지 1/2 random slot은 유지한다. 설정값 0.33을 실제 patch 비율 33%로
+  잘못 보고하지 않는다.
+- Phase 3.2b agent 구현·실행 결과: atomic case NPZ snapshot, worker-local mtime cache,
+  candidate-augmented dataset wrapper와 B1 loader를 구현했다. 실제 preprocessed `s0004`에서
+  batch `[2,1,160,112,128]`, target `[2,1,160,112,128]`, guided slot `1/2`를 확인했다.
+  Seed 55254에서 pancreas(7) boundary candidate center `[235,113,131]`가 bbox
+  `[155:315,57:169,67:195]` 안에 놓였고 guided patch에 class 7이 존재했다. All-empty pool의
+  default foreground fallback과 out-of-bounds snapshot 거부도 통과했다. Smoke candidate는
+  실제 GT class location을 error-type key에 넣은 연결 검사용이므로 online error observer나
+  B1 training 성능을 검증한 것은 아니다.
+- Phase 3.2c agent 구현·실행 결과: current B0 checkpoint의 unaugmented observer patch에서
+  `[1,1,160,112,128]` input을 `[1,10,160,112,128]` logits와 `[160,112,128]` prediction으로
+  변환하고, local 오류 좌표를 case-global `[Z,Y,X]`로 이동해 case NPZ에 atomic 저장하는
+  경로를 구현했다. `s0004` pancreas-centered patch에서 raw 오류 61,995 voxels를 관찰했고,
+  organ×error-type별 cap 512를 적용해 27개 pool에 9,584 int32 좌표를 저장했다. Snapshot
+  round-trip equality, 각 stratum cap, 관찰 bbox 내부 stale 후보 제거와 bbox 외부 후보 보존을
+  모두 통과했다. B0 30k checkpoint SHA는 official-validation에 사용한
+  `1f64688ad9b2a85ef7ee10704684309a6bb84e2f9458291d7f12a03043ba248e`와 일치한다.
+  Local inference/observer 시간은 0.681/4.976초였다. 이는 한 patch의 observer·storage
+  correctness 근거이며 cap 512의 통계적 최적성, full training refresh 비용, B1 성능 근거는 아니다.
+- Phase 3.2d agent 구현·실행 결과: B1 trainer가 기존 batch-2의 force-foreground 1개 slot만
+  case snapshot candidate로 교체하고 나머지 nnU-Net augmentation·deep supervision·loss를
+  유지하도록 연결했다. 실제 s0004 snapshot을 사용한 one-step smoke에서 input
+  `[2,1,160,112,128]`, 5-scale target, guided organ 8 boundary candidate를 관찰했고 loss
+  `2.807900`은 finite였다. 첫 parameter max abs change `5.48e-4`, CUDA peak allocated/reserved
+  `5174.7/8626.0 MiB`로 forward/backward/optimizer를 통과했다. Worker마다 candidate RNG를
+  lazy initialization해 fork로 같은 RNG state가 복제되지 않게 했다. 이는 single-case,
+  zero-worker correctness smoke이며 production multi-worker throughput·refresh schedule·B1 성능의
+  근거는 아니다.
+- Phase 3.2e agent 구현·실행 결과: frozen 1.5 mm isotropic spacing과 1.5 mm tolerance에서
+  6-neighbor erosion/dilation을 EDT error partition의 fast path로 구현했다. 최초 `border_value=0`
+  후보는 실제 patch face에서 286 FN을 interior에서 boundary로 잘못 이동시켜 기각했다.
+  EDT와 같은 array-boundary semantics인 erosion `border_value=1`로 고친 뒤 random 200개,
+  edge/single/absent/face-touching 4개 반례에서 세 mask의 voxel-wise equality를 통과했다.
+  실제 s0004 patch도 raw/saved count가 EDT 결과와 완전히 같았고 observer 시간은
+  4.976초에서 0.352초로 14.12배 감소했다. 이는 one-voxel isotropic contract에만 적용하며
+  다른 spacing/tolerance는 기존 EDT 경로를 유지한다.
+- Phase 3.2f schedule decision (`selected`): B1/A1/P는 frozen train 525 cases에서 epoch당
+  10 observer patches를 같은 schedule로 사용한다. `ceil(525/10)=53`이므로 전반부 안에 전체를
+  1회 관찰하고, epoch 105에 전체 2회 관찰한다. 120 epochs에서 총 1,200 observations,
+  case별 2–3회다. Cycle별 seeded case permutation과 재방문 organ rotation을 사용하며 focus-organ
+  count는 129–139, 동일 case의 focus-organ 반복은 0이다. Validation/test assignment 0과 입력
+  case 순서에 독립적인 replay를 통과했다. 이는 assignment 재현성이지 augmentation의 bitwise
+  재현성을 뜻하지 않는다.
+- Phase 3.2g agent 구현·실행 결과: active 2-worker augmenter를 시작한 뒤 current random model로
+  s0004 snapshot을 갱신하고 worker cache가 atomic mtime 변경을 감지하는 경로를 검사했다.
+  Refresh 1.203초, raw/saved candidate 2,794,859/12,680이었고 prefetch 뒤 두 번째 batch에서
+  새 snapshot을 사용했다. Guided organ 3 boundary center를 포함한 batch의 loss `2.726225`,
+  첫 parameter max abs change `2.43e-4`로 optimizer step을 통과했다. Observer state/history와
+  같은 epoch의 model/candidate checkpoint archive도 저장됐다. Resume restore는 별도 synthetic
+  state에서 stale pool 제거·matching epoch 복원을 통과했다. 이는 local random-init short smoke이며
+  B1 30k 성능, RunPod throughput 또는 B0 대비 개선의 근거가 아니다.
+- Phase 3.2 B1 protocol (`implemented`, main result pending): batch당 기존 force-foreground 1 slot만
+  guided로 교체하고 다른 1 slot은 random으로 유지한다. Organ 선택은 fixed-uniform, organ 내부
+  세 error-type은 통합 voxel-uniform이다. Tolerance 1.5 mm, epoch당 observer 10개, stratum cap
+  512를 사용한다. 30k에서 case당 평균 guided exposure는 약 57회이므로 512 cap은 이를 충분히
+  상회하면서 모든 525 cases의 raw coordinate 상한을 약 83 MiB로 제한한다. Cap sensitivity를
+  별도 novelty 축으로 추가하지 않는다. B1 main runner는 작성·CLI·resume state 복원까지 검증했지만
+  30k run은 Phase 4 전까지 실행하지 않는다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -260,15 +387,15 @@ Phase 1  Data Foundation                         COMPLETE
     |    → 1.4 Geometry → 1.5 Coverage → 1.6a–d Overlap
     |    → 1.7 Label / cohort / split 공동 확정
     |
-Phase 2  nnU-Net Baseline & Compute Feasibility   CURRENT
+Phase 2  nnU-Net Baseline & Compute Feasibility   COMPLETE
     |    환경 → converter → planning/preprocessing
     |    → tiny overfit → B0 pilot → 10k/20k validation
     |    → local 20k 검증 → RunPod runtime qualification
     |    → cloud B0 30k·validation → 공통 update budget 동결
     |
-Phase 3  OLES3D Sampler & Protocol               NOT STARTED
-    |    3.1 공통 candidate·error observation contract
-    |    3.2 B1: 동일 candidate pool + static allocation
+Phase 3  OLES3D Sampler & Protocol               CURRENT
+    |    3.1 공통 candidate·error observation contract  SEMANTIC CONTRACT VALIDATED
+    |    3.2 B1: allocation→observer→active-worker trainer path  COMPLETE
     |    3.3 A1: organ-wise adaptive allocation
     |    3.4 P: organ × error-type adaptive allocation
     |    3.5 synthetic/real-case sampler audit·비용 측정
@@ -347,7 +474,7 @@ Learning-progress는 선택 후보이며 필수 구현 범위로 확대하지 �
 | Primary metric | Case-first selected-organ macro Dice | Empty-mask·case/class 포함 규칙, NSD tolerance·HD95 정의 확정 |
 | Comparators | B0 default / B1 matched static / A1 organ-wise adaptive / P error-type adaptive | B1/A1/P는 candidate 생성·갱신을 동일하게 유지. B1은 fixed, A1은 organ-wise, P는 organ×error-type allocation |
 | Training seeds | `55254` 한 개 (selected) | 동일 seed가 기본 loader의 exact replay를 보장하지 않음; run 간 분산·평균 성능 주장 금지; case-level paired uncertainty와 구분 |
-| Error-type 기여 | 장기 × interior/boundary/exterior 배분 | 유형을 합친 adaptive control이 없으면 유형 구분의 개별 기여 주장 제한 |
+| Error-type 기여 | 장기 × interior/boundary/exterior 배분; 1.5 mm one-voxel band selected | 8-case train calibration에서 pool coverage 확인; 유형을 합친 adaptive control이 없으면 유형 구분의 개별 기여 주장 제한 |
 | Learning progress | 선택적 후보이며 미구현 | 고정 관측 기준과 no-progress control 필요; 다른 patch의 EMA 변화를 진전으로 오해하지 않기 |
 | Compute budget | RTX 3060 Ti 8 GB에서 작은 B0부터 측정 | 100–200 steady-state updates·대표 full inference·sampler refresh 비용 |
 
@@ -489,6 +616,7 @@ Methods 작성은 데이터·baseline 단계부터 병행한다.
   평소 단계 재생성 목록에 포함하지 않는다.
 - `cloud/runpod/`: main experiment cloud runtime의 bootstrap·data sync·SHA-256·
   qualification 절차. 상세 실행 순서는 해당 `README.md`가 기준이다.
+- `sampling/`: B1/A1/P가 공유하는 error-type contract와 sampler 감사 도구.
 - `__pycache__/`: Python 자동 cache, 연구 산출물이 아니며 Git 제외.
   기존 cache를 강제 삭제하지 않는다.
 
@@ -1326,6 +1454,291 @@ qualification pilot 명령은 `research/cloud/runpod/README.md`에 한 번에 �
 이상 VRAM, train 525/validation 28 count, patch `[160,112,128]`·batch 2 일치, 12-worker
 100-update OOM/NaN 없음이었고 main B0 trainer 2-update smoke도 통과했다. Clean source
 commit과 payload manifest 재동기화 전에는 30k main experiment를 시작하지 않는다.
+
+### Phase 3.1 — Error-type semantic partition contract
+
+연구 질문은 한 장기의 segmentation disagreement를 세 유형으로 중복·누락 없이 나눌 수
+있는가이다. GT 내부에서 tolerance보다 깊은 FN은 `interior_miss`, GT surface 양쪽의
+tolerance band에 있는 FN·FP는 `boundary_disagreement`, 그 band 밖 FP는
+`exterior_false_positive`로 분류한다. 거리 계산은 voxel index가 아니라 mm spacing을
+사용한다. 현재 `3.0 mm`는 실제 train-case 후보 분포를 보기 위한 proposed default다.
+
+Source: `research/sampling/error_type_contract.py`,
+`research/sampling/audit_error_type_contract.py`.
+Artifact: `artifacts/sampling/3_1_error_type_contract.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_error_type_contract.py \
+  --output artifacts/sampling/3_1_error_type_contract.json \
+  2>&1 | tee artifacts/sampling/3_1_error_type_contract.txt
+```
+
+Agent 실행 결과는 오류 수 `interior=1`, `boundary=2`, `exterior=1`, disjoint partition,
+XOR coverage, perfect prediction과 absent-GT fallback 모두 PASS다. 추가로 anisotropic spacing
+반례와 zero spacing 거부를 검사했다. 실제 data candidate pool이나 model 성능은 아직
+검증하지 않았다. 다음 gate는 training-only case에서 여러 tolerance의 pool coverage를
+측정해 tolerance와 memory cap을 동결하는 것이다. Validation/test label은 이 선택에 쓰지 않는다.
+
+### Phase 3.1b — Training-only error-pool coverage audit
+
+동결된 B0 30k 모델을 성능 비교가 아닌 calibration observer로 사용한다. Case는 결과를 보기 전에
+정한 `sorted frozen train IDs, first N` 규칙으로 선택한다. Validation/test는 사용하지 않는다.
+여러 tolerance는 장기당 EDT를 한 번만 계산해 재사용하며, GT/prediction union bounding box만
+처리한다. 1-case smoke는 완료했고 8-case 결과가 tolerance 선택의 다음 gate다.
+
+Source: `research/sampling/audit_train_error_pool_coverage.py`.
+Smoke artifact: `artifacts/sampling/3_1b_train_error_pool_smoke_1case.{json,txt}`.
+Pilot artifact: `artifacts/sampling/3_1c_train_error_pool_coverage_8cases.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+source research/environment/nnunet_paths.sh
+mkdir -p artifacts/sampling \
+  data/nnunet/nnUNet_results/main/b0_seed_55254/train_error_pool_audit/pilot_8cases
+set -o pipefail
+export PYTHONUNBUFFERED=1
+
+{ time .venv/bin/python \
+    research/sampling/audit_train_error_pool_coverage.py \
+    --case-count 8 \
+    --boundary-tolerances-mm 1.5 3.0 4.5 \
+    --prediction-dir \
+      data/nnunet/nnUNet_results/main/b0_seed_55254/train_error_pool_audit/pilot_8cases \
+    --output artifacts/sampling/3_1c_train_error_pool_coverage_8cases.json; } \
+  2>&1 | tee artifacts/sampling/3_1c_train_error_pool_coverage_8cases.txt
+```
+
+사용자 실행은 8/8 PASS, 전체 `4m03s`였다. Tolerance별 non-empty organ-case 수는
+interior/boundary/exterior 순서로 1.5 mm `56/72, 72/72, 68/72`, 3.0 mm
+`37/72, 72/72, 48/72`, 4.5 mm `27/72, 72/72, 32/72`였다. 동결 spacing 한 voxel인
+`1.5 mm`를 sampler 내부 tolerance로 선택한다. 이 audit은 pool non-degeneracy calibration이며
+sampler 효과나 generalization 성능을 측정하지 않는다.
+
+### Phase 3.2a — B1 static allocation contract
+
+B1은 error-type을 별도 가중하지 않는다. 오류 후보가 있는 organ을 fixed-uniform으로 고른 뒤,
+그 organ의 세 error-type 후보를 합친 집합에서 voxel을 균등 선택한다. 따라서 organ 선택은
+pool 크기의 영향을 받지 않지만, organ 내부 error-type 빈도는 해당 pool의 voxel 비율을 따른다.
+모든 pool이 비면 `None`을 반환하며 nnU-Net foreground sampling으로 fallback할 예정이다.
+
+Source: `research/sampling/candidate_pools.py`,
+`research/sampling/audit_b1_static_allocation.py`.
+Artifact: `artifacts/sampling/3_2a_b1_static_allocation.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_b1_static_allocation.py \
+  --draws 60000 \
+  --seed 55254 \
+  --output artifacts/sampling/3_2a_b1_static_allocation.json \
+  2>&1 | tee artifacts/sampling/3_2a_b1_static_allocation.txt
+```
+
+Agent 실행에서 pool 크기 `100/1000/0`인 organ의 선택 빈도는
+`0.4961/0.5039/0.0000`이었다. Organ 1 내부 type 빈도는 pool 비율과 일치했고 empty 처리와
+seed replay도 PASS다. 다음 gate는 candidate observation source·refresh cadence를 먼저 고정한
+뒤, 이 primitive를 실제 nnU-Net bbox 선택 경로에 연결하는 것이다.
+
+### Phase 3.2b — B1 candidate snapshot → nnU-Net bbox
+
+Case별 NPZ는 organ×error-type의 preprocessed global `[Z,Y,X]` int32 좌표를 저장한다.
+Dataset wrapper는 원본 data·seg를 바꾸지 않고 properties의 임시 class-location key만 추가한다.
+B1 loader는 batch에서 nnU-Net이 force-foreground로 지정한 slot만 candidate center로 교체한다.
+Snapshot이 없거나 모두 empty면 기존 foreground sampling으로 fallback한다.
+
+Source: `research/sampling/candidate_pool_store.py`,
+`research/sampling/nnunet_guided_loader.py`,
+`research/sampling/audit_b1_loader_integration.py`.
+Artifact: `artifacts/sampling/3_2b_b1_loader_integration.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_b1_loader_integration.py \
+  --case-id s0004 \
+  --seed 55254 \
+  --output artifacts/sampling/3_2b_b1_loader_integration.json \
+  2>&1 | tee artifacts/sampling/3_2b_b1_loader_integration.txt
+```
+
+Agent 실행은 input/target Shape, 실제 1/2 guided slot, selected center의 bbox 포함,
+guided patch의 selected organ 존재, all-empty fallback과 out-of-bounds 거부를 모두 통과했다.
+다음 gate는 current model의 **unaugmented observer patch**에서 1.5 mm error candidate를 만들고
+bounded case-local reservoir로 snapshot을 atomic refresh하는 경로다. 이 observer가 통과한 뒤에만
+B1 trainer에 loader를 연결한다.
+
+### Phase 3.2c — Online observer → bounded candidate reservoir
+
+Current model의 unaugmented patch prediction을 GT와 비교해 1.5 mm physical-space 오류 pool을
+만든다. Patch-local `[z,y,x]`에는 bbox lower bound를 더해 preprocessed case-global `[Z,Y,X]`
+좌표로 변환한다. 같은 bbox를 재관찰하면 그 영역의 낡은 후보는 제거하고 현재 오류 후보로
+교체하며, 관찰하지 않은 영역의 후보는 유지한다. Organ×error-type별 512-coordinate cap은
+저장량을 제한하는 기술적 기본값이며 아직 효과 면에서 최적이라고 동결하지 않는다.
+
+Source: `research/sampling/online_observer.py`,
+`research/sampling/audit_online_observer.py`.
+Artifact: `artifacts/sampling/3_2c_online_observer.{json,txt}`,
+`artifacts/sampling/3_2c_observer_snapshots/s0004.npz`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling/3_2c_observer_snapshots
+set -o pipefail
+
+{ time .venv/bin/python research/sampling/audit_online_observer.py \
+    --case-id s0004 \
+    --focus-organ-id 7 \
+    --seed 55254 \
+    --boundary-tolerance-mm 1.5 \
+    --reservoir-cap 512 \
+    --snapshot-root artifacts/sampling/3_2c_observer_snapshots \
+    --output artifacts/sampling/3_2c_online_observer.json; } \
+  2>&1 | tee artifacts/sampling/3_2c_online_observer.txt
+```
+
+Agent 실행은 실제 B0 30k checkpoint 한 patch forward, global-coordinate 변환, reservoir cap,
+atomic NPZ round trip과 stale-coordinate 교체를 통과했다. Raw 오류 61,995개에서 9,584개를
+저장했다. EDT-equivalent fast path 최종 실행에서 inference/observer는 0.530/0.352초였다.
+다음 gate는 동일 observer·snapshot contract를
+B1 trainer의 정해진 refresh schedule에 연결하고 짧은 실제 training smoke에서 sampling provenance와
+forward/backward를 함께 검증하는 것이다.
+
+### Phase 3.2d — B1 snapshot → augmented optimizer step
+
+B1 trainer는 batch size 2에서 nnU-Net이 기존 force-foreground로 지정한 마지막 1개 slot만
+guided candidate로 교체한다. Training augmentation, five-scale deep supervision, network, loss와
+optimizer는 B0와 동일하다. Multi-process loader에서 candidate RNG state가 fork로 복제되지 않도록
+worker identity별 generator를 lazy initialization한다. Main loader의 비결정성 정책은 B0와 동일하며
+bitwise reproducibility는 주장하지 않는다.
+
+Source: `research/nnunet/trainers/nnUNetTrainerOLES3DB1Static.py`,
+`research/sampling/nnunet_guided_loader.py`,
+`research/sampling/audit_b1_trainer_integration.py`.
+Artifact: `artifacts/sampling/3_2d_b1_trainer_integration.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+{ time .venv/bin/python research/sampling/audit_b1_trainer_integration.py \
+    --case-id s0004 \
+    --seed 55254 \
+    --snapshot-root artifacts/sampling/3_2c_observer_snapshots \
+    --output artifacts/sampling/3_2d_b1_trainer_integration.json; } \
+  2>&1 | tee artifacts/sampling/3_2d_b1_trainer_integration.txt
+```
+
+Agent one-step smoke는 real snapshot selection, augmentation, five-scale target,
+finite loss `2.807900`, parameter update와 worker 종료를 통과했다. 다음 gate는 B1/A1/P가
+공유할 case×organ observer refresh schedule과 비용 envelope를 먼저 정하는 것이다.
+
+### Phase 3.2e — One-voxel observer fast path equivalence
+
+Frozen spacing과 sampler tolerance가 모두 1.5 mm이므로 6-neighbor morphology로 한 voxel
+surface band를 계산한다. 이 최적화는 기존 EDT semantic contract와 voxel-wise 같아야 하며,
+다른 spacing/tolerance에서는 자동으로 EDT fallback을 사용한다.
+
+Source: `research/sampling/error_type_contract.py`,
+`research/sampling/audit_fast_error_partition.py`.
+Artifact: `artifacts/sampling/3_2e_fast_error_partition.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_fast_error_partition.py \
+  --trials 200 \
+  --seed 55254 \
+  --output artifacts/sampling/3_2e_fast_error_partition.json \
+  2>&1 | tee artifacts/sampling/3_2e_fast_error_partition.txt
+```
+
+Random 200개와 명시 반례 4개, 실제 s0004 raw/saved count가 EDT와 완전 일치했다. 실제
+observer 계산은 4.976초에서 0.352초로 감소했다. 다음 시작점은 이 비용을 사용해
+training-only case×focus-organ refresh schedule 후보의 coverage와 총 overhead를 계산하는 것이다.
+
+### Phase 3.2f — Shared training-only observer schedule
+
+B1/A1/P가 candidate 생성 비용과 관찰 대상을 공유하도록 frozen train 525 cases에서 같은 schedule을
+사용한다. 전체 case 1회를 training 전반부까지, 2회를 90% 지점까지 완료하는 최소 정수 budget은
+epoch당 10 observations다. Cycle별 case order는 seeded permutation이며 같은 case를 재방문할 때
+focus organ을 순환한다. Validation/test ID는 schedule 입력에 포함하지 않는다.
+
+Source: `research/sampling/observer_schedule.py`,
+`research/sampling/audit_observer_schedule.py`.
+Artifact: `artifacts/sampling/3_2f_observer_schedule.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_observer_schedule.py \
+  --epochs 120 \
+  --observations-per-epoch 10 \
+  --seed 55254 \
+  --output artifacts/sampling/3_2f_observer_schedule.json \
+  2>&1 | tee artifacts/sampling/3_2f_observer_schedule.txt
+```
+
+첫/두 번째 전체 coverage epoch는 53/105, case 방문은 2–3회, focus-organ count는
+129–139였다. 같은 case focus-organ 반복과 validation/test assignment는 0이며 schedule replay가
+통과했다.
+
+### Phase 3.2g — Active-worker online refresh → guided training
+
+Epoch 종료 observer는 current model을 eval/deep-supervision-off로 잠시 전환해 assignment 10개를
+관찰하고, atomic case NPZ와 state/history를 저장한 뒤 training mode를 복원한다. Active workers는
+mtime cache로 갱신을 발견한다. Rolling/milestone/final model checkpoint에는 같은 epoch의 candidate
+state archive를 함께 보존하며, resume 때 matching archive가 없으면 실행을 거부한다.
+
+Source: `research/nnunet/trainers/nnUNetTrainerOLES3DB1Static.py`,
+`research/sampling/audit_b1_online_training.py`,
+`research/nnunet/run_b1_main.py`.
+Artifact: `artifacts/sampling/3_2g_b1_online_training.{json,txt}`.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+{ time .venv/bin/python research/sampling/audit_b1_online_training.py \
+    --case-id s0004 \
+    --focus-organ-id 7 \
+    --workers 2 \
+    --seed 55254 \
+    --maximum-prefetched-batches 32 \
+    --output artifacts/sampling/3_2g_b1_online_training.json; } \
+  2>&1 | tee artifacts/sampling/3_2g_b1_online_training.txt
+```
+
+Agent smoke에서 worker는 refresh 뒤 두 번째 batch부터 새 snapshot을 사용했고 finite loss,
+parameter update, observer evidence와 model/candidate matching checkpoint를 모두 통과했다.
+
+Phase 4에서 B1 main 30k를 시작할 때 사용하는 명령은 다음과 같다. 지금 단계에서는 실행하지 않는다.
+
+```bash
+cd /workspace/oles3d
+source research/environment/nnunet_paths.sh
+export nnUNet_n_proc_DA=12
+export PYTHONUNBUFFERED=1
+
+.venv/bin/python research/nnunet/run_b1_main.py --seed 55254
+```
+
+중단된 동일 run을 matching model/candidate checkpoint에서 재개할 때만 `--continue`를 추가한다.
+다음 연구 gate는 Phase 3.3 A1의 organ-wise learning-state score와 adaptive allocation contract다.
 
 <a id="artifact-commands"></a>
 ### 산출물별 복사·실행 명령
