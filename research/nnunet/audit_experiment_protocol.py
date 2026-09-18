@@ -78,6 +78,33 @@ def main() -> None:
         raise FileNotFoundError(f"Frozen runner 누락: {missing_runners}")
     if protocol["common_training"]["total_updates"] != 30_000:
         raise AssertionError("Common 30k budget 불일치")
+    common_training = protocol["common_training"]
+    weight_identities = {
+        "cpu_audit": common_training[
+            "cpu_audit_initial_weight_sha256_seed_55254"
+        ],
+        "main_cloud": common_training[
+            "main_cloud_initial_weight_sha256_seed_55254"
+        ],
+    }
+    if any(
+        len(value) != 64
+        or any(
+            character not in "0123456789abcdef" for character in value
+        )
+        for value in weight_identities.values()
+    ):
+        raise AssertionError(f"Initial-weight SHA 형식 오류: {weight_identities}")
+    expected_cloud_runtime = {
+        "torch": "2.8.0+cu129",
+        "torch_cuda": "12.9",
+        "cuda_device": "NVIDIA GeForce RTX 4090",
+    }
+    if (
+        common_training["main_cloud_initialization_runtime"]
+        != expected_cloud_runtime
+    ):
+        raise AssertionError("Cloud initialization runtime 동결 불일치")
     if protocol["evaluation"]["primary"] != (
         "case-first macro Dice over all 9 selected organs"
     ):
@@ -93,6 +120,8 @@ def main() -> None:
         "methods": list(methods),
         "runners_present": True,
         "common_total_updates": 30_000,
+        "initial_weight_identities": weight_identities,
+        "main_cloud_initialization_runtime": expected_cloud_runtime,
         "primary_metric": protocol["evaluation"]["primary"],
         "status": "PASS",
     }
@@ -105,6 +134,7 @@ def main() -> None:
     print("Input SHA-256:    PASS")
     print("Splits:           ", result["split_counts"])
     print("Methods/runners:  ", result["methods"], "/ PASS")
+    print("Weight identities: CPU audit / cloud CUDA main separated")
     print("Budget/metric:    30000 / case-first macro Dice")
     print("JSON:             ", arguments.output)
 

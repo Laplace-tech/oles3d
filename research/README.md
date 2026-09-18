@@ -61,6 +61,7 @@ Phase 3          COMPLETE — B1/A1/P sampler·비교 protocol 동결
 Phase 3.2 B1 implementation COMPLETE; B1 30k 성능 실험은 Phase 4에서 실행
 Phase 3.3 A1 implementation COMPLETE; A1 30k 성능 실험은 Phase 4에서 실행
 Phase 3.4 P implementation COMPLETE; P 30k 성능 실험은 Phase 4에서 실행
+Phase 4          B1 cloud main 재시작 준비 중 — CPU/CUDA 초기 weight identity 분리 수정
 Multi-seed replication은 미실행·미검증
 ```
 
@@ -429,7 +430,7 @@ Multi-seed replication은 미실행·미검증
 - Phase 3.5 agent 실행 결과: B0/B1/A1/P 모두 batch 2, patch `[160,112,128]`, 250 updates/epoch,
   30k horizon, foreground setting 0.33임을 확인했다. B1/A1/P는 observer 10/epoch, tolerance
   1.5 mm, cap 512와 동일한 observer/dataloader 구현을 공유한다. Seed 55254의 초기 network
-  SHA-256은 네 방법 모두 `923792b6964cf8bc072d5e4cf3162e03af42707e955f48adeb1cc8f5220a4ab7`로
+  CPU-audit SHA-256은 네 방법 모두 `923792b6964cf8bc072d5e4cf3162e03af42707e955f48adeb1cc8f5220a4ab7`로
   일치했다. Allocation CPU 비용은 B1/A1/P `17.5/90.9/247.2 μs/draw`로 측정됐다. 이는
   allocation microbenchmark이며 full training wall time은 Phase 4에서 따로 측정한다.
 - Phase 3.6 protocol freeze: `research/nnunet/experiment_protocol.json`에 input SHA, split,
@@ -438,7 +439,15 @@ Multi-seed replication은 미실행·미검증
   train/val/test `525/28/49`, 네 runner 존재, 30k와 case-first macro Dice를 확인해 PASS했다.
   Guided runner가 initialize 전 `batch_size`를 읽을 수 있는 결함을 선제 수정했고, B1/A1/P fresh
   start는 network를 명시적으로 초기화해 실제 SHA를 frozen value와 대조한 뒤 metadata에 기록한다.
-  CPU runner-entry 검증에서 batch 2와 frozen SHA 일치를 확인했다.
+  CPU runner-entry 검증에서 batch 2와 CPU-audit SHA 일치를 확인했다.
+- Phase 4 B1 cloud clean-start gate에서 CPU-audit SHA를 CUDA main initialization에 잘못 강제한
+  guard 결함을 발견했다. Optimizer update 0회 상태에서 안전 중단됐다. 동일 RunPod
+  torch `2.8.0+cu129`, CUDA `12.9`, RTX 4090에서 B0/B1 CUDA 초기 SHA가 모두
+  `e72cc409849f710ceb226f57cf3b76709483631825d78cd8de56703167c28169`로 일치함을 재현했다.
+  Protocol은 CPU audit identity와 cloud-main CUDA identity/runtime을 분리해 기록하며,
+  B1/A1/P main runner는 cloud runtime과 CUDA SHA를 모두 검증한다. 기존 B0 metadata에는
+  starting SHA field가 없어 해당 값은 동일 runtime·seed·functional initialization 경로를 재현한
+  검증값이며, 원래 B0 metadata에서 직접 관측한 값으로 표현하지 않는다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 

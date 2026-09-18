@@ -90,7 +90,7 @@ def initialize_and_verify_frozen_weights(
     trainer: Any,
     seed: int,
 ) -> str:
-    """Fresh trainer 초기화 후 frozen initial-weight identity 확인."""
+    """Fresh CUDA trainer 초기화 후 cloud-main weight/runtime identity 확인."""
 
     random.seed(seed)
     np.random.seed(seed)
@@ -99,14 +99,29 @@ def initialize_and_verify_frozen_weights(
     trainer.initialize()
     observed = network_state_sha256(trainer.network)
     protocol = json.loads(EXPERIMENT_PROTOCOL.read_text())
-    expected = protocol["common_training"][
-        "initial_weight_sha256_seed_55254"
-    ]
-    if seed == 55254 and observed != expected:
-        raise RuntimeError(
-            "Frozen initial-weight SHA 불일치: "
-            f"expected={expected}, observed={observed}"
-        )
+    common_training = protocol["common_training"]
+    if seed == 55254:
+        expected_runtime = common_training[
+            "main_cloud_initialization_runtime"
+        ]
+        observed_runtime = {
+            "torch": torch.__version__,
+            "torch_cuda": torch.version.cuda,
+            "cuda_device": torch.cuda.get_device_name(),
+        }
+        if observed_runtime != expected_runtime:
+            raise RuntimeError(
+                "Frozen cloud initialization runtime 불일치: "
+                f"expected={expected_runtime}, observed={observed_runtime}"
+            )
+        expected = common_training[
+            "main_cloud_initial_weight_sha256_seed_55254"
+        ]
+        if observed != expected:
+            raise RuntimeError(
+                "Frozen cloud initial-weight SHA 불일치: "
+                f"expected={expected}, observed={observed}"
+            )
     return observed
 
 

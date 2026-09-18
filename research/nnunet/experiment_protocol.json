@@ -40,7 +40,13 @@
     "loader_reproducibility": "default nondeterministic workers; no bitwise reproducibility claim",
     "stage_a_seed": 55254,
     "stage_b_seeds": [55255, 55256, 55257, 55258],
-    "initial_weight_sha256_seed_55254": "923792b6964cf8bc072d5e4cf3162e03af42707e955f48adeb1cc8f5220a4ab7"
+    "cpu_audit_initial_weight_sha256_seed_55254": "923792b6964cf8bc072d5e4cf3162e03af42707e955f48adeb1cc8f5220a4ab7",
+    "main_cloud_initial_weight_sha256_seed_55254": "e72cc409849f710ceb226f57cf3b76709483631825d78cd8de56703167c28169",
+    "main_cloud_initialization_runtime": {
+      "torch": "2.8.0+cu129",
+      "torch_cuda": "12.9",
+      "cuda_device": "NVIDIA GeForce RTX 4090"
+    }
   },
   "guided_common": {
     "methods": ["B1", "A1", "P"],
