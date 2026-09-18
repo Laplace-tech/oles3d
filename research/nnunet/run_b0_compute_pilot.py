@@ -30,6 +30,11 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--report-every", type=int, default=10)
     parser.add_argument("--num-augmentation-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=55254)
+    parser.add_argument(
+        "--trainer",
+        choices=("official", "b0-main"),
+        default="official",
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
@@ -80,6 +85,7 @@ def run_pilot(arguments: argparse.Namespace) -> dict[str, Any]:
     os.environ["nnUNet_raw"] = str(RAW_ROOT)
     os.environ["nnUNet_preprocessed"] = str(PREPROCESSED_ROOT)
     os.environ["nnUNet_n_proc_DA"] = str(arguments.num_augmentation_workers)
+    os.environ["OLES3D_RUN_SEED"] = str(arguments.seed)
 
     dataloader_train: Any | None = None
     dataloader_val: Any | None = None
@@ -88,13 +94,20 @@ def run_pilot(arguments: argparse.Namespace) -> dict[str, Any]:
         os.environ["nnUNet_results"] = temporary
 
         from nnunetv2.configuration import get_allowed_n_proc_DA
-        from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
+        if arguments.trainer == "official":
+            from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import (
+                nnUNetTrainer as trainer_class,
+            )
+        else:
+            from trainers.nnUNetTrainerOLES3DB0Main import (
+                nnUNetTrainerOLES3DB0Main as trainer_class,
+            )
 
         plans = json.loads((DATASET_ROOT / "nnUNetPlans.json").read_text())
         # nnU-Net v2.8.1 trainer 생성자가 plans에서 직접 꺼내는 runtime flag
         plans["continue_training"] = False
         dataset_json = json.loads((DATASET_ROOT / "dataset.json").read_text())
-        trainer = nnUNetTrainer(
+        trainer = trainer_class(
             plans=plans,
             configuration="3d_fullres",
             fold="all",
@@ -210,6 +223,7 @@ def run_pilot(arguments: argparse.Namespace) -> dict[str, Any]:
                 "configuration": "3d_fullres",
                 "fold": "all",
                 "seed": arguments.seed,
+                "trainer": trainer.__class__.__name__,
                 "augmentation_seed_policy": "nnU-Net default seeds=None; nondeterministic workers",
                 "frozen_train_manifest_matches": True,
                 "updates": arguments.updates,

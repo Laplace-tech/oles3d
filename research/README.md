@@ -1,6 +1,6 @@
 # OLES3D Research
 
-현재 연구 상태·결정·실행 명령의 기준 문서. 갱신: 2026-09-17.
+현재 연구 상태·결정·실행 명령의 기준 문서. 갱신: 2026-09-18.
 [프로젝트 소개](../README.md) · [학습 목차](../studies/prerequisites/README.md) · [행동 규칙](../AGENTS.md)
 
 바로가기: [현재 위치](#checkpoint) · [통일 로드맵](#roadmap) ·
@@ -33,9 +33,10 @@ Phase 2          CURRENT — nnU-Net baseline 및 compute feasibility
   2.5e          adrenal-centered 1,000 updates 완료 / class 8·9 focus 통과
   2.6a          B0 100-update compute pilot 완료 / 8 GB 실행 가능·여유 작음
   2.6b          compute envelope 산정 / 기본 nondeterministic loader 유지 결정
-  2.6c          B0 seed 55254의 30k-horizon 학습 20k까지 완료
+  2.6c          Local B0 20k 완료·22.25k 개발 연장 중단 / main 결과로 미사용
   2.6d          10k/20k official val 28-case 비교 완료 / 30k 연장 결정
-B0 / B1 / A1 / P single-seed 핵심 비교 실험 미구현·미검증
+  2.6e          RunPod runtime·payload·100-update·main-trainer smoke 완료
+B0 / B1 / A1 / P core 4 runs 후 multi-seed replication 미구현·미검증
 ```
 
 - Small: 잘못된 Full 해제 과정에서 `small/`도 소실된 상태를 확인. 공식 MD5·CRC를
@@ -185,10 +186,11 @@ B0 / B1 / A1 / P single-seed 핵심 비교 실험 미구현·미검증
   classic plan은 실행 가능하지만 VRAM 여유가 작다. Loss 2.81220→0.51088은 finite였으나
   random case·augmentation batch의 training loss이므로 validation 성능 근거가 아니다.
   근거: `artifacts/nnunet/2_6a_b0_compute_pilot.{json,txt}`.
-- Phase 2.6b compute envelope: 1 run의 순수 반복 투영은 10k/20k/30k에서
-  2.00/3.99/5.99시간이다. 핵심 실험은 B0/B1/A1/P × seed 55254의 4 runs로
-  선택했으며, 30k 기준 순수 training은 총 23.96시간이다. Startup·validation·adaptive
-  refresh는 별도다.
+- Phase 2.6b compute envelope: 100-update pilot은 1 run의 순수 반복을
+  10k/20k/30k에서 2.00/3.99/5.99시간으로 보수적 투영했다. 이후 실제 B0
+  20k wall time은 132분 53초였고, 선형 환산한 30k는 약 3시간 19분,
+  B0/B1/A1/P × seed 55254의 4 runs는 약 13시간 17분이다. 이는 B0 반복
+  실측 기반 추정이며 startup·validation·B1/A1/P adaptive refresh 비용은 별도다.
 - Phase 2.6b loader 재현성: 사용자 4-batch 감사에서 동일 main seed의 두 독립 기본
   loader가 모든 batch의 case IDs·augmented CT·5-scale target SHA-256에서 불일치했다.
   `NonDetMultiThreadedAugmenter(seeds=None)`의 exact replay 실패는 관찰됐지만 학습 성능
@@ -215,6 +217,30 @@ B0 / B1 / A1 / P single-seed 핵심 비교 실험 미구현·미검증
   40/80-epoch prefix로 복구했다. Network Tensor hash 전후 동일, 모든 logger 길이 40/80,
   수정 후 2-update GPU smoke의 milestone logger 완전성을 검증했다. 원본 checkpoint backup과
   `artifacts/nnunet/2_6c_checkpoint_logging_repair.json`을 보존한다.
+- Phase 2.6c local extension stop: 20k 이후 30k 재개 과정에서 RTX 3060 Ti의
+  physical 8 GiB를 넘는 WDDM committed GPU memory와 높은 PCIe traffic, 정상 clock·temperature,
+  낮은 CPU/disk wait가 함께 관찰됐다. 이는 thermal throttling보다 VRAM paging과 cold compile
+  overhead를 우선 지지한다. 정확한 training process 하나에 SIGINT를 보내 정상 종료했고
+  worker와 GPU memory가 정리됐다. 저장 checkpoint는 20k milestone epoch 80, rolling latest
+  epoch 85(21,250 updates), best epoch 89(22,250 updates)이며 CPU load와 optimizer state 존재를
+  확인했다. 서로 다른 GPU/runtime 사이에서 이 run을 이어 붙이지 않고 development evidence로
+  보존한다.
+- Phase 2.6e RunPod migration (`validated`, main B0 clean-start 전): Secure on-demand
+  RTX 4090 24 GB, EU-RO-1 Network Volume 100 GB(`/workspace`), container disk 40 GB의 Pod를
+  사용자가 생성했다. 실제 선택 image는
+  `runpod/pytorch:1.0.2-cu1300-torch280-ubuntu2404`다. Pod 실측은 Python 3.12.3,
+  torch `2.8.0+cu129`, torchvision `0.23.0+cu129`, CUDA 12.9, cuDNN 9.10.2이며 CUDA Tensor
+  연산이 통과했다. `nnunetv2==2.8.1`을 설치한 persistent `.venv`, frozen cohort manifest,
+  train 525 preprocessed cases와 official validation 28 raw cases를 포함한 2,165 files의
+  SHA-256 검증도 failure 0으로 통과했다. Test 49 cases는 전송하지 않았다.
+  Patch `[160,112,128]`, batch 2, local preprocessed staging, workers 12를 cloud runtime으로
+  동결한다. 100-update B0 pilot에서 mean full iteration `0.1639 s`, data-wait p95
+  `0.000042 s`, peak CUDA allocated/reserved `5,035.5/8,592.0 MiB`, OOM·NaN 0을 관찰했다.
+  B0 30k update loop 추정은 약 `1.37 h`이며 validation과 B1/A1/P refresh 비용은 별도다.
+  `nnUNetTrainerOLES3DB0Main`의 2-update cloud smoke도 loss `2.8223→2.7258`, steady step
+  `0.118 s`, peak reserved `8,592 MiB`로 통과했다. Production runner는 dirty Git source에서
+  실제로 30k 시작을 거부했다. 다음 gate는 이 변경을 commit/push한 뒤 source와 payload
+  manifest를 다시 동기화하고 main B0를 clean start하는 것이다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -237,7 +263,8 @@ Phase 1  Data Foundation                         COMPLETE
 Phase 2  nnU-Net Baseline & Compute Feasibility   CURRENT
     |    환경 → converter → planning/preprocessing
     |    → tiny overfit → B0 pilot → 10k/20k validation
-    |    → B0 30k 연장·validation → 공통 update budget 동결
+    |    → local 20k 검증 → RunPod runtime qualification
+    |    → cloud B0 30k·validation → 공통 update budget 동결
     |
 Phase 3  OLES3D Sampler & Protocol               NOT STARTED
     |    3.1 공통 candidate·error observation contract
@@ -248,7 +275,9 @@ Phase 3  OLES3D Sampler & Protocol               NOT STARTED
     |    3.6 B0/B1/A1/P 비교 protocol 동결
     |
 Phase 4  Controlled Experiments                 NOT STARTED
-    |    Core 4 runs: B0/B1/A1/P × seed 55254
+    |    Stage A: B0/B1/A1/P × seed 55254 = core 4 runs
+    |    Stage B: 같은 4정책 × seeds 55255–55258 = replication 16 runs
+    |    Total intended: 20 runs, Stage A 통과 뒤 Stage B 진행
     |    동일 data·network·loss·augmentation·updates
     |    같은 initialization routine·초기 weight hash 점검
     |    checkpoint·prediction·sampler 비용 순차 수집
@@ -458,6 +487,8 @@ Methods 작성은 데이터·baseline 단계부터 병행한다.
   실습 코드가 import하므로 삭제하거나 중복 구현하지 않는다.
 - `data_audit/verify_audit_repair.py`: 코드 수리 후 쓰는 별도 회귀 검증 도구.
   평소 단계 재생성 목록에 포함하지 않는다.
+- `cloud/runpod/`: main experiment cloud runtime의 bootstrap·data sync·SHA-256·
+  qualification 절차. 상세 실행 순서는 해당 `README.md`가 기준이다.
 - `__pycache__/`: Python 자동 cache, 연구 산출물이 아니며 Git 제외.
   기존 cache를 강제 삭제하지 않는다.
 
@@ -1006,8 +1037,9 @@ error-map refresh·실패 재시도를 포함하지 않는다.
   official validation 28 cases에서 평가한다. 10k→20k case-first macro Dice 향상이
   0.5 percentage point 미만이고 9개 장기 예측이 모두 nondegenerate이면 20k를 공통
   budget으로 선택한다. 그렇지 않으면 한 번만 30k까지 연장하고 30k를 선택한다.
-- Main seed: `55254` 하나를 B0/B1/A1/P 모두에 적용한다. B0 development run은 조건이
-  변경되지 않았을 때 main B0로 재사용한다. 동일 seed는 model initialization 통제를
+- Stage A seed: `55254`를 B0/B1/A1/P 모두에 적용한다. Local B0 development run은
+  hardware/runtime이 다르므로 main B0로 재사용하지 않는다. Stage A가 통과하면 Stage B에서
+  `55255`–`55258`을 네 정책 모두에 추가한다. 동일 seed는 model initialization 통제를
   돕지만 기본 nondeterministic loader의 batch·augmentation exact replay를 보장하지 않는다.
 - Core comparators: B0 default, B1 matched static, A1 organ-wise adaptive, P organ-wise
   error-type adaptive. B1/A1/P는 candidate 정의·생성·갱신 cadence와 관측 비용을 같게
@@ -1018,21 +1050,22 @@ error-map refresh·실패 재시도를 포함하지 않는다.
 - Test policy: official test 49 cases는 budget·sampler·metric을 모두 동결한 뒤 한 번만
   최종 평가한다.
 
-Comparator-count decision (`selected`, 2026-09-17): 질문은 계산량을 줄이면서 candidate
-pool, organ-wise adaptation, error-type decomposition을 분리할 최소 실험군이다. Seed를
-55254 하나로 줄여 확보한 예산으로 B1을 core에 복원했으며, B0/B1/A1/P 네 방법을 각각
-한 번 실행한다. B1/A1/P는 candidate 생성·갱신 cadence를 동일하게 하고 allocation만
-fixed→organ-wise→organ×error-type으로 변경한다. 이 결정은 Phase 3 구현, Phase 4의
-4 core runs, Phase 5 contrast와 논문 claim wording에 적용한다. 다음 검증은 B1/A1/P
-sampler contract와 synthetic/real-case audit다.
+Comparator-count decision (`selected`, 2026-09-17; scale restored 2026-09-18): 질문은
+candidate pool, organ-wise adaptation, error-type decomposition을 분리할 최소 실험군이다.
+B0/B1/A1/P 네 방법을 유지하며 B1/A1/P는 candidate 생성·갱신 cadence를 동일하게 하고
+allocation만 fixed→organ-wise→organ×error-type으로 변경한다. 먼저 seed 55254의 core
+4 runs를 완료하고, 이후 같은 네 방법을 추가 네 seed로 반복한다. 이 결정은 Phase 3 구현,
+Phase 4의 20 intended runs, Phase 5 contrast와 논문 claim wording에 적용한다. 다음 검증은
+B1/A1/P sampler contract와 synthetic/real-case audit다.
 
-Seed-count decision (`selected`, 2026-09-17): B0/B1/A1/P를 seed `55254` 한 번씩 실행한다.
-목적은 제한된 단일 GPU와 일정 안에서 sampler mechanism의 proof-of-concept를 완주하는 것이다.
-동일 initialization routine과 가능한 초기 network Tensor hash를 기록하지만, 이미 수행한 B0의
-초기 weight hash가 보존되지 않았다면 exact 동일 초기화였다고 소급 주장하지 않는다. 이 결정으로
-training randomness에 대한 run-to-run variance, seed 평균, seed에 독립적인 안정성은 추정할 수
-없다. 같은 held-out cases의 paired difference와 bootstrap은 case sampling uncertainty를 다룰
-뿐 seed uncertainty를 대체하지 않는다. 논문은 single-seed exploratory study로 명시한다.
+Seed strategy (`selected`, 2026-09-18): 먼저 B0/B1/A1/P를 seed `55254`에서 끝까지 실행해
+core 4-policy comparison과 sampler implementation을 검증한다. 그 다음 common code·runtime·
+data·metric·30k budget을 동결한 채 seeds `55255`, `55256`, `55257`, `55258`을 네 정책에
+추가해 총 20 runs로 확장한다. Stage A 결과를 보고 유리한 method만 반복하지 않으며 Stage B에서
+버그가 발견돼 code를 바꾸면 영향받은 모든 정책·seed를 같은 규칙으로 다시 실행한다. Stage A만
+완료된 시점에는 single-seed exploratory evidence로만 해석하고, seed 평균·분산과 training-run
+uncertainty 주장은 Stage B 전체 완료 뒤에만 허용한다. Case bootstrap은 seed replication을
+대체하지 않는다.
 
 Plateau `0.5 percentage point`는 compute 제약을 위한 사전 실용 기준이며 통계적 유의성
 경계가 아니다. Phase 5의 paired uncertainty 분석과 구분한다. Phase 2.5a의 1-case
@@ -1237,6 +1270,62 @@ left kidney `+0.052137`, gallbladder `+0.152074`, liver `+0.019525`, stomach
 충족하지 않는다. 이는 20k 성능 실패가 아니라 학습이 아직 뚜렷하게 진행 중이라는 뜻이다.
 사전 규칙대로 같은 run을 30k까지 한 번 연장하고 30k validation 후 공통 budget을 동결한다.
 이 1-seed development 결과는 B0/B1/A1/P 우열이나 test 성능 근거가 아니다.
+
+### Phase 2.6e — RunPod main-runtime qualification
+
+Source와 전체 절차: `research/cloud/runpod/README.md`.
+
+로컬 재개 학습의 WDDM VRAM paging을 main experiment의 실행 위험으로 판단해 cloud
+qualification gate를 추가했다. 이는 연구 질문·sampler·data split·metric 변경이 아니라
+동일 protocol을 안정적으로 실행하기 위한 infrastructure 변경이다.
+
+작성된 재현 도구:
+
+| Source | 역할 | Artifact |
+| --- | --- | --- |
+| `payload_manifest.py` | 전송 대상 약 19 GiB의 file별 SHA-256 생성·검증 | `artifacts/cloud/runpod_payload_manifest.{json,txt}` |
+| `sync_payload.sh` | source, frozen cohort manifest, train preprocessed 525, raw validation 28의 resumable SSH 전송 | terminal transfer log |
+| `bootstrap.sh` | persistent `.venv`, exact dependency, CUDA·nnU-Net 검증 | `runpod_runtime.{json,txt}`, `runpod_pip_freeze.txt` |
+| `verify_runpod_runtime.py` | GPU·version·disk·data count·patch/batch 계약 검증 | `runpod_runtime.{json,txt}` |
+| `activate.sh` | venv, nnU-Net path, persistent cache, workers 12 활성화 | 없음 |
+| `stage_preprocessed.sh` | persistent train data의 local staging과 checksum 검증 | `runpod_local_staging.txt` |
+| `run_b0_main.py` | clean source·frozen cohort를 강제한 cloud B0 30k entry point | main checkpoint·run metadata |
+
+사용자가 생성한 Pod는 Secure on-demand RTX 4090 24 GB 1장, EU-RO-1 Network Volume
+100 GB mounted at `/workspace`, container disk 40 GB, `22/tcp`다. 실제 image tag는
+`runpod/pytorch:1.0.2-cu1300-torch280-ubuntu2404`다. 실측 runtime은 Python 3.12.3,
+torch `2.8.0+cu129`, torchvision `0.23.0+cu129`, CUDA 12.9, cuDNN 9.10.2이며 CUDA op와
+nnU-Net resolver 검사를 통과했다. Cloud direct constraints는
+`research/cloud/runpod/requirements.txt`에 local environment와 분리했다. Payload 2,165 files의
+SHA-256 failure 0과 runtime verification, B0 100-update pilot까지 통과해 runtime을 동결했다.
+
+Local payload manifest 생성:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/cloud
+set -o pipefail
+
+{ time .venv/bin/python research/cloud/runpod/payload_manifest.py create; } \
+  2>&1 | tee artifacts/cloud/runpod_payload_manifest.txt
+```
+
+Pod 생성 뒤 local WSL에서 전송:
+
+```bash
+cd /home/anna/projects/oles3d
+
+bash research/cloud/runpod/sync_payload.sh \
+  root@RUNPOD_PUBLIC_IP \
+  RUNPOD_SSH_PORT
+```
+
+RunPod SSH terminal의 bootstrap·payload verification·runtime verification·local staging·100-update
+qualification pilot 명령은 `research/cloud/runpod/README.md`에 한 번에 재현 가능하게 기록했다.
+완료 조건은 SHA-256 failure 0, exact torch/torchvision/nnU-Net version, RTX 4090과 20 GiB
+이상 VRAM, train 525/validation 28 count, patch `[160,112,128]`·batch 2 일치, 12-worker
+100-update OOM/NaN 없음이었고 main B0 trainer 2-update smoke도 통과했다. Clean source
+commit과 payload manifest 재동기화 전에는 30k main experiment를 시작하지 않는다.
 
 <a id="artifact-commands"></a>
 ### 산출물별 복사·실행 명령
