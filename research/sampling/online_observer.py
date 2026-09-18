@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from acvl_utils.cropping_and_padding.bounding_boxes import crop_and_pad_nd
 from numpy.typing import NDArray
 
 from .candidate_pools import ERROR_TYPES, ErrorCandidatePools
@@ -26,6 +27,8 @@ class ObserverPatch:
     bbox_lbs_zyx: tuple[int, int, int]
     bbox_ubs_zyx: tuple[int, int, int]
     volume_shape_zyx: tuple[int, int, int]
+    padding_before_zyx: tuple[int, int, int]
+    padding_after_zyx: tuple[int, int, int]
 
 
 @dataclass(frozen=True)
@@ -82,10 +85,9 @@ def select_observer_patch(
 
     volume_shape = np.asarray(data_czyx.shape[1:], dtype=np.int64)
     patch_shape = np.asarray(patch_size_zyx, dtype=np.int64)
-    if np.any(patch_shape <= 0) or np.any(patch_shape > volume_shape):
+    if np.any(patch_shape <= 0):
         raise ValueError(
-            f"Patch/volume Shape 계약 위반: patch={patch_shape}, "
-            f"volume={volume_shape}"
+            f"Patch Shape은 양수 필요: patch={patch_shape}"
         )
 
     # nnU-Net class location [channel,z,y,x]에서 실제 장기 voxel 하나 선택
@@ -94,24 +96,38 @@ def select_observer_patch(
     if np.any(center_zyx < 0) or np.any(center_zyx >= volume_shape):
         raise ValueError(f"Observer center가 volume 밖에 위치: {center_zyx}")
 
-    # Volume 경계에서 patch 크기를 유지하도록 시작점 제한
-    bbox_lbs = np.maximum(
-        0,
-        np.minimum(center_zyx - patch_shape // 2, volume_shape - patch_shape),
+    # 작은 volume은 bbox를 음수/경계 밖으로 확장해 nnU-Net과 동일하게 padding
+    minimum_lbs = np.minimum(0, volume_shape - patch_shape)
+    maximum_lbs = np.maximum(0, volume_shape - patch_shape)
+    bbox_lbs = np.clip(
+        center_zyx - patch_shape // 2,
+        minimum_lbs,
+        maximum_lbs,
     )
     bbox_ubs = bbox_lbs + patch_shape
-    slices = tuple(
-        slice(int(lower), int(upper))
+    bbox = [
+        [int(lower), int(upper)]
         for lower, upper in zip(bbox_lbs, bbox_ubs)
-    )
+    ]
     data_patch = np.asarray(
-        data_czyx[(slice(None), *slices)],
+        crop_and_pad_nd(data_czyx, bbox, 0),
         dtype=np.float32,
     )
     target_patch = np.asarray(
-        target_czyx[(slice(None), *slices)],
+        crop_and_pad_nd(
+            target_czyx,
+            bbox,
+            -1,
+            cast_cropped_to=np.int16,
+        ),
         dtype=np.int16,
-    ).copy()
+    )
+
+    # Patch 좌표에서 실제 volume이 존재하는 유효 범위
+    valid_lbs = np.maximum(0, -bbox_lbs)
+    valid_ubs = np.minimum(patch_shape, volume_shape - bbox_lbs)
+    padding_before = valid_lbs
+    padding_after = patch_shape - valid_ubs
 
     # nnU-Net preprocessing의 crop/padding 표식 -1을 학습 background로 변환
     target_patch[target_patch < 0] = 0
@@ -124,6 +140,8 @@ def select_observer_patch(
         bbox_lbs_zyx=tuple(int(value) for value in bbox_lbs),
         bbox_ubs_zyx=tuple(int(value) for value in bbox_ubs),
         volume_shape_zyx=tuple(int(value) for value in volume_shape),
+        padding_before_zyx=tuple(int(value) for value in padding_before),
+        padding_after_zyx=tuple(int(value) for value in padding_after),
     )
 
 
@@ -173,6 +191,19 @@ def observe_patch_errors(
         raise ValueError("maximum_candidates_per_stratum은 양수 필요")
 
     bbox_lbs = np.asarray(observer_patch.bbox_lbs_zyx, dtype=np.int32)
+    volume_shape = np.asarray(
+        observer_patch.volume_shape_zyx,
+        dtype=np.int32,
+    )
+    patch_shape = np.asarray(target_zyx.shape, dtype=np.int32)
+    valid_lbs = np.maximum(0, -bbox_lbs)
+    valid_ubs = np.minimum(patch_shape, volume_shape - bbox_lbs)
+    valid_mask = np.zeros(target_zyx.shape, dtype=bool)
+    valid_slices = tuple(
+        slice(int(lower), int(upper))
+        for lower, upper in zip(valid_lbs, valid_ubs)
+    )
+    valid_mask[valid_slices] = True
     spacing = tuple(float(value) for value in spacing_zyx_mm)
     use_one_voxel_fast_path = (
         np.allclose(spacing, spacing[0], rtol=0.0, atol=1e-5)
@@ -207,17 +238,26 @@ def observe_patch_errors(
             "exterior_false_positive": error_masks.exterior_false_positive,
         }
         for error_type in ERROR_TYPES:
-            mask = masks[error_type]
+            # Padding 영역의 prediction은 실제 case error candidate에서 제외
+            mask = masks[error_type] & valid_mask
             counts[(organ_id, error_type)] = int(np.count_nonzero(mask))
             local_coordinates = _sample_mask_coordinates(
                 mask_zyx=mask,
                 maximum_candidates=maximum_candidates_per_stratum,
                 generator=generator,
             )
-            pools[(organ_id, error_type)] = np.asarray(
+            global_coordinates = np.asarray(
                 local_coordinates + bbox_lbs,
                 dtype=np.int32,
             )
+            if len(global_coordinates) and (
+                np.any(global_coordinates < 0)
+                or np.any(global_coordinates >= volume_shape)
+            ):
+                raise AssertionError(
+                    f"{organ_id}:{error_type} candidate가 volume 밖에 위치"
+                )
+            pools[(organ_id, error_type)] = global_coordinates
 
     return ObserverResult(
         candidate_pools=ErrorCandidatePools(

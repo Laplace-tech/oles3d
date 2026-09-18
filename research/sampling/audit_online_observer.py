@@ -324,6 +324,8 @@ def main() -> None:
         "bbox_lbs_zyx": list(observer_patch.bbox_lbs_zyx),
         "bbox_ubs_zyx": list(observer_patch.bbox_ubs_zyx),
         "volume_shape_zyx": list(observer_patch.volume_shape_zyx),
+        "padding_before_zyx": list(observer_patch.padding_before_zyx),
+        "padding_after_zyx": list(observer_patch.padding_after_zyx),
         "patch_dice_by_organ": dice_by_organ(target_zyx, prediction_zyx),
         "raw_error_counts": raw_error_counts,
         "reservoir_cap_per_stratum": arguments.reservoir_cap,
@@ -347,6 +349,11 @@ def main() -> None:
     print("Input [B,C,Z,Y,X]:        ", result["input_shape_bczyx"])
     print("Logits [B,K,Z,Y,X]:       ", logits_shape)
     print("Observer bbox [Z,Y,X]:    ", observation.bbox_lbs_zyx, observation.bbox_ubs_zyx)
+    print(
+        "Padding before / after:    ",
+        observer_patch.padding_before_zyx,
+        observer_patch.padding_after_zyx,
+    )
     print("Raw error voxels:         ", sum(raw_error_counts.values()))
     print("Saved candidate voxels:   ", sum(pool_counts.values()))
     print("Reservoir cap/stratum:    ", arguments.reservoir_cap)

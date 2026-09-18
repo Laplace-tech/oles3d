@@ -61,7 +61,7 @@ Phase 3          COMPLETE — B1/A1/P sampler·비교 protocol 동결
 Phase 3.2 B1 implementation COMPLETE; B1 30k 성능 실험은 Phase 4에서 실행
 Phase 3.3 A1 implementation COMPLETE; A1 30k 성능 실험은 Phase 4에서 실행
 Phase 3.4 P implementation COMPLETE; P 30k 성능 실험은 Phase 4에서 실행
-Phase 4          B1 cloud main 재시작 준비 중 — CPU/CUDA 초기 weight identity 분리 수정
+Phase 4          B1 cloud main clean restart 준비 중 — small-volume observer padding 수정
 Multi-seed replication은 미실행·미검증
 ```
 
@@ -448,6 +448,14 @@ Multi-seed replication은 미실행·미검증
   B1/A1/P main runner는 cloud runtime과 CUDA SHA를 모두 검증한다. 기존 B0 metadata에는
   starting SHA field가 없어 해당 값은 동일 runtime·seed·functional initialization 경로를 재현한
   검증값이며, 원래 B0 metadata에서 직접 관측한 값으로 표현하지 않는다.
+- Cloud identity guard 수정 후 B1은 epoch 0의 250 optimizer updates를 수행했으나,
+  observer refresh의 여덟 번째 case `s0068` shape `[189,137,104]`가 patch
+  `[160,112,128]`보다 X축에서 작아 Shape contract로 중단됐다. Checkpoint 저장 전이며
+  해당 250 updates와 partial candidate pool은 main result로 사용하지 않고 clean restart한다.
+  Observer crop은 nnU-Net과 동일하게 data `0`, segmentation `-1` padding을 적용하고,
+  padding prediction은 error count·candidate에서 제외하도록 수정했다. Synthetic small-volume에서
+  padding false positive 0-count·global coordinate 범위를 통과했고, epoch-0 실제 schedule 10 cases
+  (`s0068` X padding 24 voxels 포함)가 모두 `[160,112,128]` observer patch를 생성했다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
