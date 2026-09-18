@@ -19,10 +19,16 @@ fi
 # 전처리 데이터 외에 compile cache와 임시 file을 위한 8 GiB 여유 보장
 required_kib="$(du -sk "${source_dataset}" | awk '{print $1}')"
 available_kib="$(df -Pk /root | awk 'NR == 2 {print $4}')"
+existing_kib=0
+if [[ -d "${local_dataset}" ]]; then
+  existing_kib="$(du -sk "${local_dataset}" | awk '{print $1}')"
+fi
 safety_margin_kib=$((8 * 1024 * 1024))
-if (( available_kib < required_kib + safety_margin_kib )); then
-  printf 'Insufficient local disk: required=%s KiB + margin=%s KiB, available=%s KiB\n' \
-    "${required_kib}" "${safety_margin_kib}" "${available_kib}" >&2
+effective_capacity_kib=$((available_kib + existing_kib))
+if (( effective_capacity_kib < required_kib + safety_margin_kib )); then
+  printf 'Insufficient local disk: required=%s KiB + margin=%s KiB, available=%s KiB, existing=%s KiB\n' \
+    "${required_kib}" "${safety_margin_kib}" "${available_kib}" \
+    "${existing_kib}" >&2
   exit 1
 fi
 
