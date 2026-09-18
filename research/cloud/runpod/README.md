@@ -205,3 +205,93 @@ set -o pipefail
 정상 중단 뒤 재개할 때만 같은 command에 `--continue`를 추가한다. 결과와 rolling/milestone
 checkpoint는 persistent Network Volume의
 `data/nnunet/nnUNet_results/main/b0_seed_55254/`에 저장한다.
+
+## 9. Main B0 30k official validation
+
+Training command가 exit 0으로 끝난 뒤 같은 Pod에서 실행한다. 내부 `Pseudo dice`는
+train-cohort patch health signal이므로 논문 성능이 아니다. 아래 단계가 frozen official
+validation 28 cases의 case-first macro Dice와 organ별 Dice를 생성한다.
+
+먼저 main checkpoint와 run metadata의 존재를 확인한다.
+
+```bash
+cd /workspace/oles3d
+source research/cloud/runpod/activate.sh
+
+model_directory="data/nnunet/nnUNet_results/main/b0_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DB0Main__nnUNetPlans__3d_fullres"
+fold_directory="${model_directory}/fold_all"
+
+test -s "${fold_directory}/checkpoint_030000.pth"
+test -s "${fold_directory}/checkpoint_final.pth"
+test -s "${fold_directory}/oles3d_run_metadata.json"
+sha256sum \
+  "${fold_directory}/checkpoint_030000.pth" \
+  "${fold_directory}/checkpoint_final.pth"
+```
+
+그다음 30k milestone을 동일 inference 설정으로 평가한다.
+
+```bash
+cd /workspace/oles3d
+source research/cloud/runpod/activate.sh
+mkdir -p artifacts/nnunet \
+  data/nnunet/nnUNet_results/main/b0_seed_55254/official_validation/checkpoint_030000
+set -o pipefail
+export PYTHONUNBUFFERED=1
+
+model_directory="data/nnunet/nnUNet_results/main/b0_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DB0Main__nnUNetPlans__3d_fullres"
+
+{ time .venv/bin/python research/nnunet/evaluate_official_validation.py \
+    --checkpoint-name checkpoint_030000.pth \
+    --model-directory "${model_directory}" \
+    --prediction-dir data/nnunet/nnUNet_results/main/b0_seed_55254/official_validation/checkpoint_030000 \
+    --output-json artifacts/nnunet/2_6g_b0_main_seed55254_30k_validation.json \
+    --output-csv artifacts/nnunet/2_6g_b0_main_seed55254_30k_case_organ_dice.csv; } \
+  2>&1 | tee artifacts/nnunet/2_6g_b0_main_seed55254_30k_validation.txt
+```
+
+완료 조건은 28/28 prediction, exception 없음, finite Dice, Shape·affine 일치,
+9장기 nonempty GT다. 결과를 local WSL로 회수하고 checksum을 대조하기 전에는 Pod를
+종료하지 않는다. 회수·검증 뒤에는 다음 sampler 구현 기간 동안 GPU Pod를 정지할 수 있다.
+
+## 10. Main 결과 회수와 GPU 종료 gate
+
+아래 명령은 local WSL에서 실행한다. `RUNPOD_PUBLIC_IP`와 `RUNPOD_SSH_PORT`는 현재
+Pod의 direct TCP 값으로 치환한다. Main model directory 전체와 해당 run의 artifact만
+회수한다.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p \
+  data/nnunet/nnUNet_results/main/b0_seed_55254 \
+  artifacts/nnunet
+
+rsync -a --info=progress2 \
+  -e "ssh -i ~/.ssh/oles3d_runpod_ed25519 -p RUNPOD_SSH_PORT -o IdentitiesOnly=yes" \
+  root@RUNPOD_PUBLIC_IP:/workspace/oles3d/data/nnunet/nnUNet_results/main/b0_seed_55254/ \
+  data/nnunet/nnUNet_results/main/b0_seed_55254/
+
+rsync -a \
+  --include='2_6f_b0_main_seed55254*' \
+  --include='2_6g_b0_main_seed55254*' \
+  --exclude='*' \
+  -e "ssh -i ~/.ssh/oles3d_runpod_ed25519 -p RUNPOD_SSH_PORT -o IdentitiesOnly=yes" \
+  root@RUNPOD_PUBLIC_IP:/workspace/oles3d/artifacts/nnunet/ \
+  artifacts/nnunet/
+```
+
+동일 source/destination을 checksum dry-run으로 다시 비교한다. 출력이 없어야 remote와
+local 내용이 동일하다.
+
+```bash
+cd /home/anna/projects/oles3d
+
+rsync -rcn --itemize-changes \
+  -e "ssh -i ~/.ssh/oles3d_runpod_ed25519 -p RUNPOD_SSH_PORT -o IdentitiesOnly=yes" \
+  root@RUNPOD_PUBLIC_IP:/workspace/oles3d/data/nnunet/nnUNet_results/main/b0_seed_55254/ \
+  data/nnunet/nnUNet_results/main/b0_seed_55254/
+```
+
+Training exit 0, official validation 28/28, local 회수, checksum dry-run 무출력까지 확인되면
+GPU compute가 필요 없는 Phase 3 sampler 구현·synthetic audit 동안 Pod를 정지한다.
+Network Volume은 별도의 storage resource이므로 Pod 정지 뒤에도 보관 비용이 남는다.

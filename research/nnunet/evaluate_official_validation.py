@@ -8,6 +8,7 @@ import csv
 import hashlib
 import json
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -26,7 +27,7 @@ DATASET_DIRECTORY = NNUNET_ROOT / "nnUNet_raw" / DATASET_NAME
 MANIFEST_PATH = (
     PROJECT_ROOT / "artifacts" / "data_foundation" / "1_7d_data_manifest.json"
 )
-MODEL_DIRECTORY = (
+DEFAULT_MODEL_DIRECTORY = (
     NNUNET_ROOT
     / "nnUNet_results"
     / "development"
@@ -54,7 +55,20 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--checkpoint-name",
         required=True,
-        choices=("checkpoint_010000.pth", "checkpoint_020000.pth"),
+        choices=(
+            "checkpoint_010000.pth",
+            "checkpoint_020000.pth",
+            "checkpoint_030000.pth",
+        ),
+    )
+    parser.add_argument(
+        "--model-directory",
+        type=Path,
+        default=DEFAULT_MODEL_DIRECTORY,
+        help=(
+            "Trainer configuration directory containing fold_all. "
+            "Default preserves the local development B0 path."
+        ),
     )
     parser.add_argument("--prediction-dir", type=Path, required=True)
     parser.add_argument("--output-json", type=Path, required=True)
@@ -79,11 +93,38 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def git_provenance() -> dict[str, str | list[str]]:
+    """평가 실행 당시 source revision과 working-tree 상태 기록."""
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    return {
+        "git_commit": commit,
+        "git_status_porcelain": status,
+        "evaluation_script_sha256": sha256_file(Path(__file__).resolve()),
+    }
+
+
 def configure_nnunet_environment() -> None:
     """Project-local nnU-Net 경로 설정."""
-    os.environ["nnUNet_raw"] = str(NNUNET_ROOT / "nnUNet_raw")
-    os.environ["nnUNet_preprocessed"] = str(NNUNET_ROOT / "nnUNet_preprocessed")
-    os.environ["nnUNet_results"] = str(NNUNET_ROOT / "nnUNet_results")
+    # RunPod가 명시한 persistent/staged 경로는 보존하고, 미설정 시에만 local 기본값 사용.
+    os.environ.setdefault("nnUNet_raw", str(NNUNET_ROOT / "nnUNet_raw"))
+    os.environ.setdefault(
+        "nnUNet_preprocessed",
+        str(NNUNET_ROOT / "nnUNet_preprocessed"),
+    )
+    os.environ.setdefault("nnUNet_results", str(NNUNET_ROOT / "nnUNet_results"))
     os.environ["nnUNet_extTrainer"] = str(PROJECT_ROOT / "research" / "nnunet" / "trainers")
 
 
@@ -261,7 +302,8 @@ def main() -> None:
 
     case_ids = load_validation_case_ids(arguments.case_limit)
     validate_inventory(case_ids)
-    checkpoint_path = MODEL_DIRECTORY / "fold_all" / arguments.checkpoint_name
+    model_directory = arguments.model_directory.resolve()
+    checkpoint_path = model_directory / "fold_all" / arguments.checkpoint_name
     if not checkpoint_path.is_file():
         raise FileNotFoundError(checkpoint_path)
 
@@ -321,7 +363,7 @@ def main() -> None:
         allow_tqdm=True,
     )
     predictor.initialize_from_trained_model_folder(
-        str(MODEL_DIRECTORY),
+        str(model_directory),
         use_folds=("all",),
         checkpoint_name=arguments.checkpoint_name,
     )
@@ -366,7 +408,8 @@ def main() -> None:
         "manifest_path": str(MANIFEST_PATH.relative_to(PROJECT_ROOT)),
         "checkpoint_path": str(checkpoint_path.relative_to(PROJECT_ROOT)),
         "checkpoint_sha256": checkpoint_sha256,
-        "model_directory": str(MODEL_DIRECTORY.relative_to(PROJECT_ROOT)),
+        "model_directory": str(model_directory),
+        "source_provenance": git_provenance(),
         "case_count": len(case_ids),
         "case_ids": case_ids,
         "label_map": {str(key): value for key, value in LABELS.items()},
