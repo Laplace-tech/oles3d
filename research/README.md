@@ -38,7 +38,7 @@ Phase 2          COMPLETE — nnU-Net baseline 및 compute feasibility
   2.6e          RunPod runtime·payload·100-update·main-trainer smoke 완료
   2.6f          RunPod clean main B0 30k 완료 / 67분 14초
   2.6g          Official val 28-case 완료 / case-first macro Dice 0.923552
-Phase 3          CURRENT — B1/A1/P 공통 sampler contract 설계
+Phase 3          COMPLETE — B1/A1/P sampler·비교 protocol 동결
   3.1           Error-type semantic partition contract synthetic 검증 완료
   3.1b          B0 30k train pool audit 8-case 완료 / tolerance 1.5 mm 선택
   3.2a          B1 static allocation contract synthetic 검증 완료
@@ -48,8 +48,20 @@ Phase 3          CURRENT — B1/A1/P 공통 sampler contract 설계
   3.2e          One-voxel morphology fast path EDT-equivalence 검증 완료
   3.2f          Shared train-only observer schedule 동결·coverage 감사 완료
   3.2g          Active multi-worker online refresh→guided update smoke 완료
+  3.3a          A1 Dice-deficit EMA·혼합 확률 synthetic contract 검증 완료
+  3.3b          Atomic allocation state→dataset/loader 전달 검증 완료
+  3.3c          A1 multi-worker trainer·CUDA optimizer·checkpoint smoke 완료
+  3.3d          A1 30k runner·matching resume state 검증 완료
+  3.4a          P organ×error-type 혼합 확률 synthetic contract 검증 완료
+  3.4b          P atomic joint state→dataset/loader 전달 검증 완료
+  3.4c          P multi-worker trainer·CUDA optimizer·checkpoint smoke 완료
+  3.4d          P 30k runner·matching resume state 검증 완료
+  3.5           Comparator fairness·초기 weight·allocation cost 감사 완료
+  3.6           Stage-A experiment protocol file·identity audit 동결 완료
 Phase 3.2 B1 implementation COMPLETE; B1 30k 성능 실험은 Phase 4에서 실행
-A1 / P와 multi-seed replication은 미구현·미검증
+Phase 3.3 A1 implementation COMPLETE; A1 30k 성능 실험은 Phase 4에서 실행
+Phase 3.4 P implementation COMPLETE; P 30k 성능 실험은 Phase 4에서 실행
+Multi-seed replication은 미실행·미검증
 ```
 
 - Small: 잘못된 Full 해제 과정에서 `small/`도 소실된 상태를 확인. 공식 MD5·CRC를
@@ -368,6 +380,65 @@ A1 / P와 multi-seed replication은 미구현·미검증
   상회하면서 모든 525 cases의 raw coordinate 상한을 약 83 MiB로 제한한다. Cap sensitivity를
   별도 novelty 축으로 추가하지 않는다. B1 main runner는 작성·CLI·resume state 복원까지 검증했지만
   30k run은 Phase 4 전까지 실행하지 않는다.
+- Phase 3.3a agent 구현·synthetic 검증 결과: A1은 observer focus patch의 장기별 hard Dice에서
+  `difficulty=1-Dice` EMA를 만들고, 후보가 있는 장기에
+  `p=(1-λ)uniform+λ(normalized difficulty)`를 적용한다. `EMA decay=0.9`, `λ=0.5`의
+  synthetic 예에서 Dice `0.9/0.2`는 확률 `0.3056/0.6944`가 됐고 60,000회 관측은
+  `0.3037/0.6963`이었다. Empty organ 미선택, error-type 합집합 내부 voxel-uniform,
+  state serialization과 seed replay를 통과했다. 이는 allocation 수식의 근거이며 실제
+  multi-worker 반영이나 성능 개선의 근거가 아니다. EMA와 λ는 validation/test tuning 없이
+  protocol constant로 사용하되 실제 dynamics audit 전까지 proposed 상태다.
+- Phase 3.3b agent 구현·synthetic 검증 결과: global learning-state JSON을 atomic replacement하고
+  worker-local mtime cache가 새 epoch 상태를 다시 읽는 store를 구현했다. Epoch 1→2 갱신 뒤
+  확률 변화, empty organ 제외, dataset properties→loader 전달을 통과했다. B1 static sampling
+  60,000회 regression도 기존 `0.4961/0.5039`로 재통과했다.
+- Phase 3.3c 사용자 실행·agent 검증 결과: A1 trainer가 B1과 같은 candidate/observer schedule을
+  사용하면서 focus organ Dice만 EMA에 반영하고, active worker에 최신 장기 확률을 전달하며,
+  model/candidate/allocation state를 같은 checkpoint epoch에 보존하도록 연결했다. Random-init
+  s0004 pancreas focus Dice는 `0.008613`, 관찰 count는 organ 7만 1이었다. Worker probability 합은
+  1.0이었고 두 번째 batch에서 갱신 state를 읽었다. Guided organ 6 exterior FP patch의 loss
+  `2.791712`, 첫 parameter max abs change `7.57e-4`로 finite optimizer step을 통과했다.
+  전체 smoke는 18.565초였으며 model/candidate/allocation matching archive를 확인했다. 이는 실행
+  correctness 근거이며 A1이 B1보다 우수하다는 성능 근거는 아니다.
+- Phase 3.3d agent 구현·synthetic 검증 결과: clean Git, frozen train 525, 동일 30k budget과
+  A1 constants를 기록하는 production runner를 작성했다. Resume helper는 checkpoint epoch와 같은
+  candidate NPZ·observer state·`_organ_learning_state.json`만 복원하며 stale pool을 제거하는
+  synthetic epoch-7 검사를 통과했다. Main 30k는 Phase 4 전까지 실행하지 않는다.
+- Phase 3.4a agent 구현·synthetic 검증 결과: P의 장기 확률은 A1과 동일하게 유지하고,
+  선택된 장기 내부 type 확률만 `p=(1-λr)q+λr a`로 변경했다. `q`는 A1의 현재 pool-size
+  conditional 비율, `a`는 focus-organ raw error share EMA다. Cold start는 A1의
+  `0.1/0.2/0.7`과 같았고, raw burden `0.7/0.2/0.1`, `λr=0.5`에서 기대 type 확률
+  `0.4/0.2/0.4`, 80,000회 관측 `0.4038/0.1987/0.3976`을 확인했다. Organ 확률은
+  A1 기대값과 일치했고 empty/zero handling과 state replay를 통과했다. 이는 수식 근거이며
+  P 성능 개선의 근거가 아니다.
+- Phase 3.4b agent 구현·synthetic 검증 결과: organ Dice-deficit state와 error-type share state를
+  한 JSON에 atomic 저장하고 worker-local mtime cache로 전달했다. Epoch 1→2에서 organ/type
+  확률이 함께 갱신됐고 dataset→loader handoff를 통과했다. 같은 loader refactor 뒤 B1 static과
+  A1 atomic-store regression도 재통과했다.
+- Phase 3.4c 사용자 실행·agent 검증 결과: P trainer가 observer focus organ의 Dice와 세 raw
+  error count를 같은 epoch의 joint state에 반영하고, active worker에 organ×type 확률을 전달하며,
+  model/candidate/joint state를 함께 archive하도록 연결했다. Random-init s0004 pancreas focus
+  Dice `0.008613`, raw interior/boundary/exterior error `16090/5531/35929`를 관찰했다. 두 번째
+  batch에서 joint state를 읽었고 liver exterior-FP guided patch의 loss `2.814090`, 첫 parameter
+  max abs change `2.80e-4`로 finite optimizer step을 통과했다. 전체 smoke는 14.801초였으며
+  matching archive를 확인했다. 이는 correctness 근거이며 P의 성능 우월성 근거가 아니다.
+- Phase 3.4d agent 구현·synthetic 검증 결과: clean Git, frozen train 525, 동일 30k budget과 P
+  constants를 기록하는 production runner를 작성했다. Resume helper는 checkpoint epoch와 같은
+  candidate NPZ·observer state·`_p_learning_state.json`만 복원하며 stale pool을 제거하는
+  synthetic epoch-11 검사를 통과했다. Main 30k는 Phase 4에서 실행한다.
+- Phase 3.5 agent 실행 결과: B0/B1/A1/P 모두 batch 2, patch `[160,112,128]`, 250 updates/epoch,
+  30k horizon, foreground setting 0.33임을 확인했다. B1/A1/P는 observer 10/epoch, tolerance
+  1.5 mm, cap 512와 동일한 observer/dataloader 구현을 공유한다. Seed 55254의 초기 network
+  SHA-256은 네 방법 모두 `923792b6964cf8bc072d5e4cf3162e03af42707e955f48adeb1cc8f5220a4ab7`로
+  일치했다. Allocation CPU 비용은 B1/A1/P `17.5/90.9/247.2 μs/draw`로 측정됐다. 이는
+  allocation microbenchmark이며 full training wall time은 Phase 4에서 따로 측정한다.
+- Phase 3.6 protocol freeze: `research/nnunet/experiment_protocol.json`에 input SHA, split,
+  labels, common budget, guided common settings, B0/B1/A1/P 차이, planned contrasts, primary metric,
+  test access와 change-control을 동결했다. Identity audit은 manifest/plans/dataset JSON SHA,
+  train/val/test `525/28/49`, 네 runner 존재, 30k와 case-first macro Dice를 확인해 PASS했다.
+  Guided runner가 initialize 전 `batch_size`를 읽을 수 있는 결함을 선제 수정했고, B1/A1/P fresh
+  start는 network를 명시적으로 초기화해 실제 SHA를 frozen value와 대조한 뒤 metadata에 기록한다.
+  CPU runner-entry 검증에서 batch 2와 frozen SHA 일치를 확인했다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -393,15 +464,15 @@ Phase 2  nnU-Net Baseline & Compute Feasibility   COMPLETE
     |    → local 20k 검증 → RunPod runtime qualification
     |    → cloud B0 30k·validation → 공통 update budget 동결
     |
-Phase 3  OLES3D Sampler & Protocol               CURRENT
+Phase 3  OLES3D Sampler & Protocol               COMPLETE
     |    3.1 공통 candidate·error observation contract  SEMANTIC CONTRACT VALIDATED
     |    3.2 B1: allocation→observer→active-worker trainer path  COMPLETE
-    |    3.3 A1: organ-wise adaptive allocation
-    |    3.4 P: organ × error-type adaptive allocation
-    |    3.5 synthetic/real-case sampler audit·비용 측정
-    |    3.6 B0/B1/A1/P 비교 protocol 동결
+    |    3.3 A1: organ-wise adaptive allocation  COMPLETE
+    |    3.4 P: organ × error-type adaptive allocation  COMPLETE
+    |    3.5 comparator fairness·초기 weight·allocation cost  COMPLETE
+    |    3.6 B0/B1/A1/P Stage-A protocol 동결  COMPLETE
     |
-Phase 4  Controlled Experiments                 NOT STARTED
+Phase 4  Controlled Experiments                 NEXT
     |    Stage A: B0/B1/A1/P × seed 55254 = core 4 runs
     |    Stage B: 같은 4정책 × seeds 55255–55258 = replication 16 runs
     |    Total intended: 20 runs, Stage A 통과 뒤 Stage B 진행
@@ -1738,7 +1809,179 @@ export PYTHONUNBUFFERED=1
 ```
 
 중단된 동일 run을 matching model/candidate checkpoint에서 재개할 때만 `--continue`를 추가한다.
-다음 연구 gate는 Phase 3.3 A1의 organ-wise learning-state score와 adaptive allocation contract다.
+
+### Phase 3.3 — A1 organ-wise adaptive allocation
+
+A1은 B1의 candidate 생성·observer schedule·guided slot을 그대로 두고 장기 선택 확률만
+바꾼다. Focus-organ hard Dice의 deficit EMA를 learning state로 사용하며, uniform 50%와
+adaptive 50%를 혼합해 모든 nonempty organ의 exploration floor를 보존한다. Error type은
+합쳐 선택하므로 explicit type allocation은 Phase 3.4 P에만 존재한다.
+
+Source: `research/sampling/organ_learning_state.py`,
+`research/sampling/organ_allocation_store.py`,
+`research/nnunet/trainers/nnUNetTrainerOLES3DA1Adaptive.py`.
+
+수식과 분포의 CPU 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_a1_organ_allocation.py \
+  --draws 60000 \
+  --seed 55254 \
+  --ema-decay 0.9 \
+  --adaptive-fraction 0.5 \
+  --output artifacts/sampling/3_3a_a1_organ_allocation.json \
+  2>&1 | tee artifacts/sampling/3_3a_a1_organ_allocation.txt
+```
+
+Atomic state와 dataset/loader 전달의 CPU 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_a1_allocation_store.py \
+  --output artifacts/sampling/3_3b_a1_allocation_store.json \
+  2>&1 | tee artifacts/sampling/3_3b_a1_allocation_store.txt
+```
+
+Actual preprocessed case·CUDA·2 active workers를 사용하는 다음 smoke는 사용자 실행 gate다.
+Random-init 한 case correctness 검사이며 A1 성능 실험이 아니다.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+export PYTHONUNBUFFERED=1
+
+{ time .venv/bin/python research/sampling/audit_a1_online_training.py \
+    --case-id s0004 \
+    --focus-organ-id 7 \
+    --workers 2 \
+    --seed 55254 \
+    --maximum-prefetched-batches 32 \
+    --output artifacts/sampling/3_3c_a1_online_training.json; } \
+  2>&1 | tee artifacts/sampling/3_3c_a1_online_training.txt
+```
+
+사용자 실행 결과 focus Dice→EMA state→worker probability→finite optimizer step과 matching
+archive를 모두 통과했다. Phase 4에서 A1 main 30k를 시작할 명령은 다음과 같다. 지금은 실행하지 않는다.
+
+```bash
+cd /workspace/oles3d
+source research/environment/nnunet_paths.sh
+export nnUNet_n_proc_DA=12
+export PYTHONUNBUFFERED=1
+
+.venv/bin/python research/nnunet/run_a1_main.py --seed 55254
+```
+
+중단된 동일 run을 matching model/candidate/allocation checkpoint에서 재개할 때만 `--continue`를
+추가한다. 다음 연구 gate는 Phase 3.4 P의 organ×error-type adaptive allocation contract다.
+
+### Phase 3.4 — P organ×error-type adaptive allocation
+
+P는 A1의 organ probability를 그대로 쓰고 선택된 organ 내부 error-type probability만
+adaptive하게 만든다. Cold start와 nonadaptive component는 A1의 현재 pool-size 비율이므로
+`A1→P`의 핵심 차이는 explicit error-type feedback이다.
+
+Source: `research/sampling/error_type_learning_state.py`,
+`research/sampling/p_allocation_store.py`,
+`research/nnunet/trainers/nnUNetTrainerOLES3DPAdaptive.py`.
+
+수식과 distribution의 CPU 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_p_error_type_allocation.py \
+  --draws 80000 \
+  --seed 55254 \
+  --output artifacts/sampling/3_4a_p_error_type_allocation.json \
+  2>&1 | tee artifacts/sampling/3_4a_p_error_type_allocation.txt
+```
+
+Atomic joint state와 dataset/loader 전달의 CPU 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_p_allocation_store.py \
+  --output artifacts/sampling/3_4b_p_allocation_store.json \
+  2>&1 | tee artifacts/sampling/3_4b_p_allocation_store.txt
+```
+
+Actual preprocessed case·CUDA·2 active workers를 사용하는 다음 smoke는 사용자 실행 gate다.
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+export PYTHONUNBUFFERED=1
+
+{ time .venv/bin/python research/sampling/audit_p_online_training.py \
+    --case-id s0004 \
+    --focus-organ-id 7 \
+    --workers 2 \
+    --seed 55254 \
+    --maximum-prefetched-batches 32 \
+    --output artifacts/sampling/3_4c_p_online_training.json; } \
+  2>&1 | tee artifacts/sampling/3_4c_p_online_training.txt
+```
+
+사용자 실행 결과 focus Dice·raw type count→joint state→worker organ/type probability→finite
+optimizer step과 matching archive를 모두 통과했다. Phase 4에서 P main 30k를 시작할 명령은 다음과 같다.
+
+```bash
+cd /workspace/oles3d
+source research/environment/nnunet_paths.sh
+export nnUNet_n_proc_DA=12
+export PYTHONUNBUFFERED=1
+
+.venv/bin/python research/nnunet/run_p_main.py --seed 55254
+```
+
+중단된 동일 run을 matching model/candidate/joint-state checkpoint에서 재개할 때만 `--continue`를
+추가한다.
+
+### Phase 3.5–3.6 — Comparator audit와 protocol freeze
+
+Comparator의 공통 training field, guided observer path, 초기 weight hash와 allocation CPU cost 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/sampling
+set -o pipefail
+
+.venv/bin/python research/sampling/audit_comparator_protocol.py \
+  --draws-per-method 30000 \
+  --seed 55254 \
+  --output artifacts/sampling/3_5_comparator_protocol.json \
+  2>&1 | tee artifacts/sampling/3_5_comparator_protocol.txt
+```
+
+Frozen protocol input identity·runner·budget·primary metric 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet
+set -o pipefail
+
+.venv/bin/python research/nnunet/audit_experiment_protocol.py \
+  --output artifacts/nnunet/3_6_frozen_experiment_protocol.json \
+  2>&1 | tee artifacts/nnunet/3_6_frozen_experiment_protocol.txt
+```
+
+다음 gate는 코드와 protocol을 commit/push하고 RunPod source를 동기화한 뒤, Phase 4 Stage A의
+B1 30k를 clean start하는 것이다. RunPod는 그 직전에만 deploy한다.
 
 <a id="artifact-commands"></a>
 ### 산출물별 복사·실행 명령
