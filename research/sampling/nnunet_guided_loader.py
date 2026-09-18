@@ -15,10 +15,16 @@ from .candidate_pools import (
     ErrorCandidatePools,
     choose_b1_static_candidate,
 )
+from .error_type_learning_state import choose_p_candidate_from_probabilities
+from .organ_allocation_store import OrganAllocationStore
+from .organ_learning_state import choose_a1_candidate_from_probabilities
+from .p_allocation_store import PAllocationStore
 
 
 GUIDED_CENTER_KEY = 1_000_001
 GuidedPoolKey = tuple[str, int, str]
+AllocationKey = tuple[str, int]
+TypeAllocationKey = tuple[str, int, str]
 
 
 def _guided_pool_key(organ_id: int, error_type: str) -> GuidedPoolKey:
@@ -39,12 +45,55 @@ def _is_guided_pool_key(key: Any) -> bool:
     )
 
 
+def _allocation_key(organ_id: int) -> AllocationKey:
+    """class_locations 내부의 A1 allocation key 생성."""
+
+    return ("oles3d_allocation", organ_id)
+
+
+def _is_allocation_key(key: Any) -> bool:
+    """A1 allocation probability key 여부 확인."""
+
+    return (
+        isinstance(key, tuple)
+        and len(key) == 2
+        and key[0] == "oles3d_allocation"
+        and isinstance(key[1], int)
+    )
+
+
+def _type_allocation_key(organ_id: int, error_type: str) -> TypeAllocationKey:
+    """class_locations 내부의 P error-type probability key 생성."""
+
+    return ("oles3d_type_allocation", organ_id, error_type)
+
+
+def _is_type_allocation_key(key: Any) -> bool:
+    """P error-type allocation key 여부 확인."""
+
+    return (
+        isinstance(key, tuple)
+        and len(key) == 3
+        and key[0] == "oles3d_type_allocation"
+        and isinstance(key[1], int)
+        and key[2] in ERROR_TYPES
+    )
+
+
 class GuidedCandidateDataset:
     """기존 dataset properties에 case-local candidate 좌표만 추가."""
 
-    def __init__(self, base_dataset: Any, pool_store: CandidatePoolStore) -> None:
+    def __init__(
+        self,
+        base_dataset: Any,
+        pool_store: CandidatePoolStore,
+        allocation_store: OrganAllocationStore | None = None,
+        p_allocation_store: PAllocationStore | None = None,
+    ) -> None:
         self.base_dataset = base_dataset
         self.pool_store = pool_store
+        self.allocation_store = allocation_store
+        self.p_allocation_store = p_allocation_store
         self.identifiers = base_dataset.identifiers
 
     def load_case(self, identifier: str) -> tuple[Any, Any, Any, dict[str, Any]]:
@@ -77,6 +126,37 @@ class GuidedCandidateDataset:
                 class_locations[_guided_pool_key(organ_id, error_type)] = (
                     np.concatenate((channel_column, coordinates), axis=1)
                 )
+        if self.allocation_store is not None:
+            stored = self.allocation_store.load()
+            if stored is not None:
+                _, learning_state = stored
+                probabilities = learning_state.allocation_probabilities(
+                    candidate_pools
+                )
+                for organ_id, probability in probabilities.items():
+                    class_locations[_allocation_key(organ_id)] = np.asarray(
+                        [probability],
+                        dtype=np.float64,
+                    )
+        if self.p_allocation_store is not None:
+            stored = self.p_allocation_store.load()
+            if stored is not None:
+                _, organ_state, type_state = stored
+                organ_probabilities = organ_state.allocation_probabilities(
+                    candidate_pools
+                )
+                for organ_id, probability in organ_probabilities.items():
+                    class_locations[_allocation_key(organ_id)] = np.asarray(
+                        [probability], dtype=np.float64
+                    )
+                    type_probabilities = type_state.type_probabilities(
+                        candidate_pools,
+                        organ_id,
+                    )
+                    for error_type, type_probability in type_probabilities.items():
+                        class_locations[
+                            _type_allocation_key(organ_id, error_type)
+                        ] = np.asarray([type_probability], dtype=np.float64)
         updated_properties["class_locations"] = class_locations
         return data, segmentation, previous_segmentation, updated_properties
 
@@ -91,6 +171,8 @@ class nnUNetDataLoaderOLES3DB1(nnUNetDataLoader):
         self._selection_generator: np.random.Generator | None = None
         self.last_candidate_choice: CandidateChoice | None = None
         self.last_guided_bbox: tuple[tuple[int, ...], tuple[int, ...]] | None = None
+        self.last_allocation_probabilities: dict[int, float] | None = None
+        self.last_type_probabilities: dict[int, dict[str, float]] | None = None
         self.guided_selection_count = 0
         self.guided_fallback_count = 0
 
@@ -127,19 +209,30 @@ class nnUNetDataLoaderOLES3DB1(nnUNetDataLoader):
             "guided_case_id": (
                 None if choice is None else str(batch["keys"][-1])
             ),
+            "allocation_probabilities": self.last_allocation_probabilities,
+            "type_probabilities": self.last_type_probabilities,
         }
         return batch
 
     @staticmethod
     def _split_class_locations(
         class_locations: dict[Any, np.ndarray],
-    ) -> tuple[dict[Any, np.ndarray], ErrorCandidatePools | None]:
+    ) -> tuple[
+        dict[Any, np.ndarray],
+        ErrorCandidatePools | None,
+        dict[int, float] | None,
+        dict[int, dict[str, float]] | None,
+    ]:
         """기존 foreground 좌표와 OLES3D candidate 좌표 분리."""
 
         base_locations = {
             key: value
             for key, value in class_locations.items()
-            if not _is_guided_pool_key(key)
+            if (
+                not _is_guided_pool_key(key)
+                and not _is_allocation_key(key)
+                and not _is_type_allocation_key(key)
+            )
         }
         guided_entries = {
             key: value
@@ -147,7 +240,7 @@ class nnUNetDataLoaderOLES3DB1(nnUNetDataLoader):
             if _is_guided_pool_key(key)
         }
         if not guided_entries:
-            return base_locations, None
+            return base_locations, None, None, None
 
         organ_ids = tuple(sorted({int(key[1]) for key in guided_entries}))
         pools = {}
@@ -161,7 +254,37 @@ class nnUNetDataLoaderOLES3DB1(nnUNetDataLoader):
                     locations[:, 1:],
                     dtype=np.int32,
                 )
-        return base_locations, ErrorCandidatePools(pools=pools, organ_ids=organ_ids)
+        allocation_entries = {
+            int(key[1]): float(np.asarray(value).item())
+            for key, value in class_locations.items()
+            if _is_allocation_key(key)
+        }
+        probabilities = allocation_entries or None
+        type_entries: dict[int, dict[str, float]] = {}
+        for key, value in class_locations.items():
+            if _is_type_allocation_key(key):
+                type_entries.setdefault(int(key[1]), {})[str(key[2])] = float(
+                    np.asarray(value).item()
+                )
+        return (
+            base_locations,
+            ErrorCandidatePools(pools=pools, organ_ids=organ_ids),
+            probabilities,
+            type_entries or None,
+        )
+
+    def _choose_candidate(
+        self,
+        candidate_pools: ErrorCandidatePools,
+        probabilities: dict[int, float] | None,
+        type_probabilities: dict[int, dict[str, float]] | None,
+    ) -> CandidateChoice | None:
+        """B1 fixed-uniform organ allocation 적용."""
+
+        return choose_b1_static_candidate(
+            candidate_pools,
+            self._process_local_generator(),
+        )
 
     def get_bbox(
         self,
@@ -181,16 +304,31 @@ class nnUNetDataLoaderOLES3DB1(nnUNetDataLoader):
                 overwrite_class,
                 verbose,
             )
-        base_locations, candidate_pools = self._split_class_locations(
-            class_locations
-        )
+        (
+            base_locations,
+            candidate_pools,
+            probabilities,
+            type_probabilities,
+        ) = self._split_class_locations(class_locations)
         self.last_candidate_choice = None
         self.last_guided_bbox = None
+        self.last_allocation_probabilities = (
+            None if probabilities is None else dict(probabilities)
+        )
+        self.last_type_probabilities = (
+            None
+            if type_probabilities is None
+            else {
+                organ_id: dict(values)
+                for organ_id, values in type_probabilities.items()
+            }
+        )
 
         if force_fg and candidate_pools is not None:
-            choice = choose_b1_static_candidate(
-                candidate_pools,
-                self._process_local_generator(),
+            choice = self._choose_candidate(
+                candidate_pools=candidate_pools,
+                probabilities=probabilities,
+                type_probabilities=type_probabilities,
             )
             if choice is not None:
                 center = np.asarray(
@@ -221,4 +359,55 @@ class nnUNetDataLoaderOLES3DB1(nnUNetDataLoader):
             class_locations=base_locations,
             overwrite_class=overwrite_class,
             verbose=verbose,
+        )
+
+
+class nnUNetDataLoaderOLES3DA1(nnUNetDataLoaderOLES3DB1):
+    """B1과 같은 pool에서 A1 organ-wise 확률을 사용하는 loader."""
+
+    def _choose_candidate(
+        self,
+        candidate_pools: ErrorCandidatePools,
+        probabilities: dict[int, float] | None,
+        type_probabilities: dict[int, dict[str, float]] | None,
+    ) -> CandidateChoice | None:
+        """Worker가 읽은 최신 A1 allocation probability 적용."""
+
+        if probabilities is None:
+            # 첫 observer refresh 전 uniform B1과 동일한 안전한 초기 선택
+            return super()._choose_candidate(
+                candidate_pools,
+                probabilities,
+                type_probabilities,
+            )
+        return choose_a1_candidate_from_probabilities(
+            candidate_pools=candidate_pools,
+            probabilities=probabilities,
+            generator=self._process_local_generator(),
+        )
+
+
+class nnUNetDataLoaderOLES3DP(nnUNetDataLoaderOLES3DA1):
+    """A1 organ 확률과 P error-type 확률을 사용하는 loader."""
+
+    def _choose_candidate(
+        self,
+        candidate_pools: ErrorCandidatePools,
+        probabilities: dict[int, float] | None,
+        type_probabilities: dict[int, dict[str, float]] | None,
+    ) -> CandidateChoice | None:
+        """Worker가 읽은 최신 P joint probability 적용."""
+
+        if probabilities is None or type_probabilities is None:
+            return nnUNetDataLoaderOLES3DB1._choose_candidate(
+                self,
+                candidate_pools,
+                None,
+                None,
+            )
+        return choose_p_candidate_from_probabilities(
+            candidate_pools=candidate_pools,
+            organ_probabilities=probabilities,
+            type_probabilities=type_probabilities,
+            generator=self._process_local_generator(),
         )

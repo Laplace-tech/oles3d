@@ -34,6 +34,9 @@ from sampling.nnunet_guided_loader import (
     GuidedCandidateDataset,
     nnUNetDataLoaderOLES3DB1,
 )
+from sampling.organ_allocation_store import OrganAllocationStore
+from sampling.organ_learning_state import measure_hard_dice_by_organ
+from sampling.p_allocation_store import PAllocationStore
 from sampling.observer_schedule import ObserverAssignment, ObserverSchedule
 from sampling.online_observer import (
     make_empty_candidate_pools,
@@ -82,6 +85,29 @@ class nnUNetTrainerOLES3DB1Static(nnUNetTrainerOLES3DB0Main):
         self._observer_dataset: Any | None = None
         self._candidate_pool_store: CandidatePoolStore | None = None
         self._observer_schedule: ObserverSchedule | None = None
+
+    def _allocation_store(self) -> OrganAllocationStore | None:
+        """B1에는 adaptive allocation state 없음."""
+
+        return None
+
+    def _training_loader_class(self) -> type[nnUNetDataLoaderOLES3DB1]:
+        """현재 policy의 guided training loader class 반환."""
+
+        return nnUNetDataLoaderOLES3DB1
+
+    def _p_allocation_store(self) -> PAllocationStore | None:
+        """B1/A1에는 joint organ×type allocation state 없음."""
+
+        return None
+
+    def _augment_observer_report(self, report: dict[str, Any]) -> None:
+        """Subclass별 observer state 갱신 hook."""
+
+    def _extra_candidate_state_paths(self) -> tuple[Path, ...]:
+        """Candidate archive에 함께 저장할 추가 state 경로 반환."""
+
+        return ()
 
     def _candidate_pool_root(self) -> Path:
         """환경변수로 지정된 case snapshot directory 확인."""
@@ -154,8 +180,10 @@ class nnUNetTrainerOLES3DB1Static(nnUNetTrainerOLES3DB0Main):
         guided_training_dataset = GuidedCandidateDataset(
             base_dataset=base_training_dataset,
             pool_store=self._candidate_pool_store,
+            allocation_store=self._allocation_store(),
+            p_allocation_store=self._p_allocation_store(),
         )
-        training_loader = nnUNetDataLoaderOLES3DB1(
+        training_loader = self._training_loader_class()(
             guided_training_dataset,
             self.batch_size,
             initial_patch_size,
@@ -272,6 +300,11 @@ class nnUNetTrainerOLES3DB1Static(nnUNetTrainerOLES3DB0Main):
                     maximum_candidates_per_stratum=self.reservoir_cap,
                     generator=generator,
                 )
+                focus_dice = measure_hard_dice_by_organ(
+                    target_zyx=observer_patch.target_czyx[0],
+                    prediction_zyx=prediction_zyx,
+                    organ_ids=(assignment.focus_organ_id,),
+                )[assignment.focus_organ_id]
                 previous = self._candidate_pool_store.load(
                     assignment.case_id
                 )
@@ -293,6 +326,19 @@ class nnUNetTrainerOLES3DB1Static(nnUNetTrainerOLES3DB0Main):
                         "focus_organ_id": assignment.focus_organ_id,
                         "visit_cycle": assignment.visit_cycle,
                         "observation_seed": assignment.observation_seed,
+                        "focus_organ_dice": focus_dice,
+                        "focus_error_counts": {
+                            error_type: int(
+                                observation.error_counts[
+                                    (assignment.focus_organ_id, error_type)
+                                ]
+                            )
+                            for error_type in (
+                                "interior_miss",
+                                "boundary_disagreement",
+                                "exterior_false_positive",
+                            )
+                        },
                         "bbox_lbs_zyx": list(observation.bbox_lbs_zyx),
                         "bbox_ubs_zyx": list(observation.bbox_ubs_zyx),
                         "raw_error_voxels": int(
@@ -318,6 +364,7 @@ class nnUNetTrainerOLES3DB1Static(nnUNetTrainerOLES3DB0Main):
             "cases": case_reports,
             "total_seconds": time.perf_counter() - started,
         }
+        self._augment_observer_report(report)
         self._write_observer_evidence(report)
         return report
 
@@ -376,6 +423,12 @@ class nnUNetTrainerOLES3DB1Static(nnUNetTrainerOLES3DB0Main):
         temporary_directory.mkdir(parents=True)
         for source_path in sorted(pool_root.glob("*.npz")):
             os.link(source_path, temporary_directory / source_path.name)
+        for source_path in self._extra_candidate_state_paths():
+            if not source_path.is_file():
+                raise FileNotFoundError(
+                    f"추가 candidate state 없음: {source_path}"
+                )
+            shutil.copy2(source_path, temporary_directory / source_path.name)
         shutil.copy2(
             state_path,
             temporary_directory / "oles3d_observer_state.json",
