@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "status": "FROZEN_STAGE_A_TRAINING",
+  "frozen_date_kst": "2026-09-18",
+  "dataset": {
+    "name": "Dataset501_OLES3D9Organs",
+    "source_release": "TotalSegmentator v2.0.1",
+    "manifest": "artifacts/data_foundation/1_7d_data_manifest.json",
+    "manifest_sha256": "2cfd9a701fa21e9f0a2b2cbbbcf8480e81cb80de5bb2eb09968cbb0c9d9c049a",
+    "plans_sha256": "2aa11afbe58e7cd1f1cd382371be3d6f38d557bd204cd499c859a3e6c581f662",
+    "dataset_json_sha256": "b93b64c062e7562f6d405d2d2492801391679644cd33ff7c8d7a2002bad0cda2",
+    "train_cases": 525,
+    "validation_cases": 28,
+    "test_cases": 49,
+    "test_access_policy": "No policy selection or tuning; final locked evaluation only"
+  },
+  "labels": {
+    "0": "background",
+    "1": "spleen",
+    "2": "kidney_right",
+    "3": "kidney_left",
+    "4": "gallbladder",
+    "5": "liver",
+    "6": "stomach",
+    "7": "pancreas",
+    "8": "adrenal_gland_right",
+    "9": "adrenal_gland_left"
+  },
+  "common_training": {
+    "configuration": "3d_fullres",
+    "fold": "all",
+    "patch_size_zyx": [160, 112, 128],
+    "batch_size": 2,
+    "updates_per_epoch": 250,
+    "epochs": 120,
+    "total_updates": 30000,
+    "foreground_setting": 0.33,
+    "actual_guided_or_forced_slots_per_batch": 1,
+    "network_loss_augmentation_optimizer_scheduler": "identical nnU-Net v2.8.1 plan and trainer lineage",
+    "loader_reproducibility": "default nondeterministic workers; no bitwise reproducibility claim",
+    "stage_a_seed": 55254,
+    "stage_b_seeds": [55255, 55256, 55257, 55258],
+    "initial_weight_sha256_seed_55254": "923792b6964cf8bc072d5e4cf3162e03af42707e955f48adeb1cc8f5220a4ab7"
+  },
+  "guided_common": {
+    "methods": ["B1", "A1", "P"],
+    "observer_patches_per_epoch": 10,
+    "observer_total_assignments": 1200,
+    "boundary_tolerance_mm": 1.5,
+    "reservoir_cap_per_organ_error_type": 512,
+    "schedule": "same seeded train-only case permutation and focus-organ rotation",
+    "candidate_definition_refresh_augmentation": "identical"
+  },
+  "methods": {
+    "B0": {
+      "policy": "nnU-Net default foreground oversampling",
+      "runner": "research/nnunet/run_b0_main.py"
+    },
+    "B1": {
+      "policy": "online error pools; fixed-uniform organ allocation; pooled voxel-uniform error types",
+      "runner": "research/nnunet/run_b1_main.py"
+    },
+    "A1": {
+      "policy": "B1 plus focus-organ hard-Dice-deficit EMA allocation",
+      "organ_ema_decay": 0.9,
+      "organ_adaptive_fraction": 0.5,
+      "runner": "research/nnunet/run_a1_main.py"
+    },
+    "P": {
+      "policy": "A1 plus organ-local raw-error-share EMA type allocation",
+      "error_type_baseline": "current candidate-pool voxel fraction",
+      "error_type_ema_decay": 0.9,
+      "error_type_adaptive_fraction": 0.5,
+      "runner": "research/nnunet/run_p_main.py"
+    }
+  },
+  "planned_contrasts": {
+    "B0_vs_B1": "online error-candidate pipeline configuration",
+    "B1_vs_A1": "organ-wise adaptive allocation",
+    "A1_vs_P": "explicit error-type adaptive allocation",
+    "B0_vs_P": "complete OLES3D configuration"
+  },
+  "evaluation": {
+    "primary": "case-first macro Dice over all 9 selected organs",
+    "aggregation": "mean over 9 organs within each case, then mean over cases",
+    "ground_truth_empty": "protocol violation because frozen eligible cohort requires all nine organs nonempty",
+    "prediction_empty_with_nonempty_ground_truth": "Dice 0",
+    "development_selection_split": "official validation 28 cases",
+    "final_test_split": "held-out 49 cases",
+    "secondary": "per-organ Dice and case-level paired differences; surface-metric definitions must be frozen before test evaluation"
+  },
+  "execution_order": {
+    "stage_a": ["B0", "B1", "A1", "P"],
+    "stage_b": "Run four additional seeds for all methods only after Stage A integrity checks",
+    "cloud_policy": "Deploy RunPod only for bounded smoke/main training/inference; stop between GPU-dependent gates"
+  },
+  "change_control": "Any scientific change after this freeze requires a recorded reason, affected methods, rerun scope, and no held-out-test-driven selection"
+}

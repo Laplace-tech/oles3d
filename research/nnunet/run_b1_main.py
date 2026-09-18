@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -27,6 +28,7 @@ DATASET_NAME = "Dataset501_OLES3D9Organs"
 FROZEN_MANIFEST = (
     PROJECT_ROOT / "artifacts" / "data_foundation" / "1_7d_data_manifest.json"
 )
+EXPERIMENT_PROTOCOL = NNUNET_RESEARCH_ROOT / "experiment_protocol.json"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -71,6 +73,43 @@ def git_status_porcelain() -> list[str]:
     ).stdout.splitlines()
 
 
+def network_state_sha256(network: torch.nn.Module) -> str:
+    """Parameter·buffer 이름/Shape/dtype/value의 SHA-256 계산."""
+
+    digest = hashlib.sha256()
+    for name, tensor in sorted(network.state_dict().items()):
+        value = tensor.detach().cpu().contiguous()
+        digest.update(name.encode("utf-8"))
+        digest.update(str(value.dtype).encode("ascii"))
+        digest.update(str(tuple(value.shape)).encode("ascii"))
+        digest.update(value.numpy().tobytes())
+    return digest.hexdigest()
+
+
+def initialize_and_verify_frozen_weights(
+    trainer: Any,
+    seed: int,
+) -> str:
+    """Fresh trainer 초기화 후 frozen initial-weight identity 확인."""
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    trainer.initialize()
+    observed = network_state_sha256(trainer.network)
+    protocol = json.loads(EXPERIMENT_PROTOCOL.read_text())
+    expected = protocol["common_training"][
+        "initial_weight_sha256_seed_55254"
+    ]
+    if seed == 55254 and observed != expected:
+        raise RuntimeError(
+            "Frozen initial-weight SHA 불일치: "
+            f"expected={expected}, observed={observed}"
+        )
+    return observed
+
+
 def verify_frozen_training_cases(
     preprocessed_dataset_root: Path,
 ) -> tuple[int, str]:
@@ -110,6 +149,7 @@ def restore_candidate_state(
     output_folder: Path,
     pool_root: Path,
     completed_epochs: int,
+    extra_state_names: tuple[str, ...] = (),
 ) -> None:
     """Checkpoint epoch와 matching archive로 candidate state 복원."""
 
@@ -134,6 +174,13 @@ def restore_candidate_state(
     temporary_root.mkdir(parents=True)
     for source_path in sorted(archive.glob("*.npz")):
         os.link(source_path, temporary_root / source_path.name)
+    for state_name in extra_state_names:
+        source_path = archive / state_name
+        if not source_path.is_file():
+            raise FileNotFoundError(
+                f"Checkpoint와 matching extra state 없음: {source_path}"
+            )
+        shutil.copy2(source_path, temporary_root / state_name)
     backup_root = pool_root.parent / f".{pool_root.name}.restore_old"
     if backup_root.exists():
         shutil.rmtree(backup_root)
@@ -219,6 +266,8 @@ def main() -> None:
             completed_epochs=completed_epochs,
         )
         trainer.load_checkpoint(checkpoint)
+        starting_weight_sha256 = network_state_sha256(trainer.network)
+        starting_state_role = "resume_checkpoint"
         print("Resume checkpoint:", checkpoint_path, flush=True)
         print("Restored candidate epoch:", completed_epochs, flush=True)
     else:
@@ -227,6 +276,11 @@ def main() -> None:
         if pool_root.exists() and any(pool_root.iterdir()):
             raise FileExistsError("기존 B1 candidate pool이 있어 새 실행 중단")
         pool_root.mkdir(parents=True, exist_ok=True)
+        starting_weight_sha256 = initialize_and_verify_frozen_weights(
+            trainer,
+            arguments.seed,
+        )
+        starting_state_role = "frozen_fresh_initialization"
 
     metadata = {
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -251,6 +305,8 @@ def main() -> None:
         "augmentation_workers": int(os.environ["nnUNet_n_proc_DA"]),
         "scheduler_horizon_updates": trainer.schedule_horizon_updates,
         "requested_stop_updates": 30_000,
+        "starting_state_role": starting_state_role,
+        "starting_weight_sha256": starting_weight_sha256,
         "git_commit": git_commit(),
         "git_status_porcelain": dirty_paths,
         "torch_version": torch.__version__,
