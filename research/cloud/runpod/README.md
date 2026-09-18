@@ -295,3 +295,49 @@ rsync -rcn --itemize-changes \
 Training exit 0, official validation 28/28, local 회수, checksum dry-run 무출력까지 확인되면
 GPU compute가 필요 없는 Phase 3 sampler 구현·synthetic audit 동안 Pod를 정지한다.
 Network Volume은 별도의 storage resource이므로 Pod 정지 뒤에도 보관 비용이 남는다.
+
+## 11. B1 30k official validation
+
+B1 clean training은 2026-09-18에 완료했고 local checksum 회수도 통과했다. 다음 deploy에서
+아래 frozen official validation 28 cases부터 재개한다. Pseudo dice는 이 평가를 대신하지 않는다.
+
+```bash
+cd /workspace/oles3d
+source research/cloud/runpod/activate.sh
+mkdir -p artifacts/nnunet \
+  data/nnunet/nnUNet_results/main/b1_seed_55254/official_validation/checkpoint_030000
+set -o pipefail
+export PYTHONUNBUFFERED=1
+
+model_directory="data/nnunet/nnUNet_results/main/b1_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DB1Static__nnUNetPlans__3d_fullres"
+
+{ time .venv/bin/python research/nnunet/evaluate_official_validation.py \
+    --checkpoint-name checkpoint_030000.pth \
+    --model-directory "${model_directory}" \
+    --prediction-dir data/nnunet/nnUNet_results/main/b1_seed_55254/official_validation/checkpoint_030000 \
+    --output-json artifacts/nnunet/4_1b_b1_main_seed55254_30k_validation.json \
+    --output-csv artifacts/nnunet/4_1b_b1_main_seed55254_30k_case_organ_dice.csv; } \
+  2>&1 | tee artifacts/nnunet/4_1b_b1_main_seed55254_30k_validation.txt
+```
+
+완료 조건은 B0와 동일한 28/28 prediction, exception 없음, finite Dice,
+Shape·affine 일치와 9-organ nonempty GT다. 이후 결과와 prediction을 local로 회수하고
+checksum 차이 0을 확인한 뒤 A1 30k로 진행한다.
+
+## 12. Pod restart 또는 automatic migration
+
+Network Volume의 `/workspace`는 영속하지만 container-local
+`/root/oles3d_runtime/nnUNet_preprocessed`는 새 Pod마다 소실된다. Migration 뒤에는 다음을
+구분해 확인한다.
+
+- 바뀌어도 정상: public IP, direct TCP port, SSH host fingerprint, Pod/container ID.
+- 유지 필수: 같은 Network Volume, `/workspace/oles3d`, result/checkpoint, project `.venv`,
+  RTX 4090, torch `2.8.0+cu129`, torchvision `0.23.0+cu129`, CUDA 12.9,
+  nnU-Net 2.8.1과 frozen source/payload identity.
+- 재생성 필수: `stage_preprocessed.sh`로 container-local cache 생성과 검증.
+- 선택 금지: CPU-only start를 main GPU experiment로 사용하거나 이전 host/port를 그대로 가정.
+
+Direct SSH에서 `Permission denied (publickey)`가 나오면 root password를 추측하지 않는다.
+Dashboard의 proxy SSH 또는 web terminal로 접속해 local public key만
+`/root/.ssh/authorized_keys`에 등록한 뒤, 새 direct IP/port로 다시 연결한다. Training이나
+validation 전에 Sections 5–6의 payload/runtime verification과 local staging을 다시 통과시킨다.

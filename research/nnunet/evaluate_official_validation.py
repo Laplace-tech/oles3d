@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""B0 milestone checkpoint를 frozen official validation 28 cases에서 평가."""
+"""Main milestone checkpoint를 frozen official validation 28 cases에서 평가."""
 
 from __future__ import annotations
 

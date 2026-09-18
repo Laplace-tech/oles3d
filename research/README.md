@@ -1,6 +1,6 @@
 # OLES3D Research
 
-현재 연구 상태·결정·실행 명령의 기준 문서. 갱신: 2026-09-18.
+현재 연구 상태·결정·실행 명령의 기준 문서. 갱신: 2026-09-19.
 [프로젝트 소개](../README.md) · [학습 목차](../studies/prerequisites/README.md) · [행동 규칙](../AGENTS.md)
 
 바로가기: [현재 위치](#checkpoint) · [통일 로드맵](#roadmap) ·
@@ -58,10 +58,10 @@ Phase 3          COMPLETE — B1/A1/P sampler·비교 protocol 동결
   3.4d          P 30k runner·matching resume state 검증 완료
   3.5           Comparator fairness·초기 weight·allocation cost 감사 완료
   3.6           Stage-A experiment protocol file·identity audit 동결 완료
-Phase 3.2 B1 implementation COMPLETE; B1 30k 성능 실험은 Phase 4에서 실행
+Phase 3.2 B1 implementation COMPLETE; B1 30k는 Phase 4에서 완료·validation 대기
 Phase 3.3 A1 implementation COMPLETE; A1 30k 성능 실험은 Phase 4에서 실행
 Phase 3.4 P implementation COMPLETE; P 30k 성능 실험은 Phase 4에서 실행
-Phase 4          B1 cloud main clean restart 준비 중 — small-volume observer padding 수정
+Phase 4          Stage A 진행 중 — B0 완료, B1 30k 완료·official validation 대기
 Multi-seed replication은 미실행·미검증
 ```
 
@@ -456,6 +456,17 @@ Multi-seed replication은 미실행·미검증
   padding prediction은 error count·candidate에서 제외하도록 수정했다. Synthetic small-volume에서
   padding false positive 0-count·global coordinate 범위를 통과했고, epoch-0 실제 schedule 10 cases
   (`s0068` X padding 24 voxels 포함)가 모두 `[160,112,128]` observer patch를 생성했다.
+- Phase 4 B1 clean restart는 RunPod RTX 4090에서 120 epochs × 250 updates = 30,000 updates를
+  `105m25.377s`에 완료했다. 마지막 train/validation patch loss는 `-0.7435/-0.7941`, 마지막
+  9-organ Pseudo dice는 `[0.9727,0.9467,0.9616,0.8616,0.9774,0.9260,0.9060,0.7981,0.8370]`,
+  best EMA Pseudo dice는 `0.903600`이었다. 이는 train-cohort patch health signal이며 frozen
+  official-validation 성능이 아니다. `checkpoint_030000.pth`와 `checkpoint_final.pth`는 파일
+  SHA가 다르지만 292개 network Tensor SHA가
+  `273680b13019a12bd0b50799dda9a57506fa4878b9c1846b3954ceba527824e1`로 동일했다.
+  Epoch-120 candidate archive는 frozen train 525/525 NPZ와 observer state를 보존한다.
+  Remote result tree 1.5 GiB와 격리한 failed run을 local로 회수했고 checksum dry-run 차이는
+  0줄이었다. Training source는 commit `e05d3f6cdb303c138c1c7e519c80a757f0585842`였다.
+  다음 gate는 `checkpoint_030000.pth`의 frozen official validation 28 cases이며 아직 실행하지 않았다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -489,8 +500,10 @@ Phase 3  OLES3D Sampler & Protocol               COMPLETE
     |    3.5 comparator fairness·초기 weight·allocation cost  COMPLETE
     |    3.6 B0/B1/A1/P Stage-A protocol 동결  COMPLETE
     |
-Phase 4  Controlled Experiments                 NEXT
-    |    Stage A: B0/B1/A1/P × seed 55254 = core 4 runs
+Phase 4  Controlled Experiments                 IN PROGRESS
+    |    Stage A: B0 30k+validation COMPLETE
+    |             B1 30k COMPLETE → official validation NEXT
+    |             A1/P NOT STARTED
     |    Stage B: 같은 4정책 × seeds 55255–55258 = replication 16 runs
     |    Total intended: 20 runs, Stage A 통과 뒤 Stage B 진행
     |    동일 data·network·loss·augmentation·updates
