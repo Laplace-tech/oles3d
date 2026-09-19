@@ -140,6 +140,10 @@ def main() -> None:
     from trainers.nnUNetTrainerOLES3DB0Main import (
         nnUNetTrainerOLES3DB0Main,
     )
+    from run_b1_main import (
+        initialize_and_verify_frozen_weights,
+        network_state_sha256,
+    )
 
     plans: dict[str, Any] = json.loads(plans_path.read_text())
     plans["continue_training"] = arguments.continue_training
@@ -158,12 +162,20 @@ def main() -> None:
     if arguments.continue_training:
         checkpoint = find_resume_checkpoint(output_folder)
         trainer.load_checkpoint(str(checkpoint))
+        starting_weight_sha256 = network_state_sha256(trainer.network)
+        starting_state_role = "resume_checkpoint"
         print("Resume checkpoint:", checkpoint, flush=True)
     elif existing_checkpoints:
         raise FileExistsError(
             "기존 main checkpoint가 있어 새 실행 중단; --continue 필요: "
             f"{existing_checkpoints[0]}"
         )
+    else:
+        starting_weight_sha256 = initialize_and_verify_frozen_weights(
+            trainer,
+            arguments.seed,
+        )
+        starting_state_role = "frozen_fresh_initialization"
 
     metadata_path = output_folder / "oles3d_run_metadata.json"
     metadata = {
@@ -186,6 +198,8 @@ def main() -> None:
         "updates_per_epoch": trainer.num_iterations_per_epoch,
         "scheduler_horizon_updates": trainer.schedule_horizon_updates,
         "requested_stop_updates": 30_000,
+        "starting_state_role": starting_state_role,
+        "starting_weight_sha256": starting_weight_sha256,
         "internal_validation": (
             "5 train-cohort patches/epoch for health monitoring only; "
             "not official validation"

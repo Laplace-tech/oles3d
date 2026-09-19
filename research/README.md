@@ -58,11 +58,13 @@ Phase 3          COMPLETE — B1/A1/P sampler·비교 protocol 동결
   3.4d          P 30k runner·matching resume state 검증 완료
   3.5           Comparator fairness·초기 weight·allocation cost 감사 완료
   3.6           Stage-A experiment protocol file·identity audit 동결 완료
-Phase 3.2 B1 implementation COMPLETE; B1 30k는 Phase 4에서 완료·validation 대기
-Phase 3.3 A1 implementation COMPLETE; A1 30k 성능 실험은 Phase 4에서 실행
-Phase 3.4 P implementation COMPLETE; P 30k 성능 실험은 Phase 4에서 실행
-Phase 4          Stage A 진행 중 — B0/B1/A1 완료, P 30k NEXT
-Multi-seed replication은 미실행·미검증
+Phase 3.2 B1 implementation COMPLETE; Phase 4 30k+validation 완료
+Phase 3.3 A1 implementation COMPLETE; Phase 4 30k+validation 완료
+Phase 3.4 P implementation COMPLETE; Phase 4 30k+validation 완료
+Phase 4          Stage A COMPLETE — B0/B1/A1/P 30k+validation 완료
+  4.4           Seed 55254 paired Dice·training-log 분석 완료
+                 NSD·HD95·10k·20k efficiency 완료
+Stage B          Seeds 55255/55256/55257 × 4정책 efficiency replication 준비 중
 ```
 
 - Small: 잘못된 Full 해제 과정에서 `small/`도 소실된 상태를 확인. 공식 MD5·CRC를
@@ -475,8 +477,60 @@ Multi-seed replication은 미실행·미검증
   `72m56.900s`에 완료했다. Epoch-120 candidate archive 525/525, organ-learning state와
   checkpoint를 함께 보존했다. Frozen official validation 28/28의 case-first macro Dice는
   `0.923548`, 전 장기 empty prediction `0/28`, inference `341.1s`였다. 이는 B1 대비
-  `+0.000772`, B0 대비 `-0.000004`로 단일 seed에서 사실상 동률이다. 다음 gate는 동일
-  runtime·seed·budget에서 explicit organ×error-type allocation을 적용하는 P 30k다.
+  `+0.000772`, B0 대비 `-0.000004`로 단일 seed에서 사실상 동률이다.
+- Phase 4 P는 clean commit `89254064d414e42ecec893104e7f9f05d16a47db`에서 30,000
+  updates를 `74m11.048s`에 완료했다. Epoch-120 candidate archive 525/525,
+  `_p_learning_state.json`, checkpoint와 official-validation prediction 28/28을 보존했고,
+  remote/local checksum dry-run 차이는 0줄이었다. Validation case-first macro Dice는
+  `0.923413`으로 B0 대비 `-0.000139`(`-0.0139 pp`)이며 사실상 동률이다.
+- Stage-A seed 55254 paired analysis에서 B0/B1/A1/P의 primary macro Dice는 각각
+  `0.923552/0.922776/0.923548/0.923413`이었다. 모든 primary paired case-bootstrap
+  95% interval은 0을 포함해 단일 seed에서 어느 정책의 전체 우월성도 입증되지 않았다.
+  P-B0는 validation GT voxel 수로만 고른 네 소형 장기(adrenal 양측·gallbladder·pancreas)
+  exploratory macro에서 `+0.316 pp`였으나 interval `[-0.147,+0.739] pp`로 불확실하다.
+  Right adrenal은 `+0.798 pp`, conditional case-bootstrap interval `[+0.306,+1.332] pp`였지만
+  single-seed·organ-wise descriptive 결과이므로 confirmatory claim이 아니다.
+- P training health signal은 Pseudo Dice 0.8 도달 epoch가 stomach/pancreas/right adrenal/
+  left adrenal에서 `20/40/43/50`, B0는 `24/49/48/56`이었다. 이는 stochastic train-cohort
+  patch signal이며 full-volume generalization efficiency의 증거가 아니다. 동일 main trajectory의
+  10k/20k official validation이 조기수렴 가설의 다음 필수 검사다.
+- Stage-A secondary surface metric은 결과 확인 전에 NSD tolerance `3.0 mm`와 HD95(mm)로
+  선택했다. 3.0 mm는 1.5 mm spacing의 두 voxel에 해당하는 기술적 tolerance이며 임상
+  tolerance로 주장하지 않는다. GT nonempty/prediction empty는 NSD 0, HD95 undefined와
+  failure count로 처리하고 test 49 cases는 계속 미접근이다. 사용자 실행 결과 NSD@3mm는
+  B0/B1/A1/P `0.965922/0.966945/0.965281/0.964456`, available-organ HD95는
+  `4.667/6.053/6.921/6.121 mm`였다. P-B0 paired delta는 NSD `-0.001466`
+  (95% case-bootstrap `[-0.004372,+0.001038]`)와 HD95 `+1.455 mm`
+  (`[+0.391,+2.782]`)로, overall boundary-improvement 가설을 지지하지 않고 HD95는
+  오히려 악화했다. 주요 tail failure는 s1287 kidney-left `+100.158 mm`, s1024 liver
+  `+97.756 mm`, s0324 kidney-right `+41.646 mm`, s0095/s0650 stomach 약 `+41/+40 mm`였다.
+  이는 평균적 surface overlap과 별개인 원거리 mismatch를 뜻하지만, disconnected false positive와
+  missed ground-truth region 중 어느 쪽인지는 component-level audit 전에는 확정하지 않는다.
+- 사용자 실행의 P-B0 HD95 tail component audit은 악화량 상위 5개 case-organ을 결과 확인 후
+  진단적으로 조사했다. P는 s1287 kidney-left에서 detached prediction을 `1.596→2.288 mL`,
+  s0095 stomach에서 `1.455→5.302 mL`, s0650 stomach에서 `6.359→17.334 mL`로 키웠다.
+  s0324 kidney-right는 B0에 detached component가 없었지만 P에서 `1.141 mL`가 발생했다.
+  s1024 liver는 B0/P 모두 작은 missed GT components가 같았으나 detached prediction은
+  `7.965→42.798 mL`로 증가했다. 따라서 주요 HD95 악화는 계산 이상이 아니라 P가 기존
+  원거리 false-positive 군집을 증폭하거나 새 군집을 만든 현상으로 관찰됐다. 이는 결과를 본 뒤
+  선택한 5개 tail case의 diagnostic evidence이며 전체 cohort 빈도나 인과효과를 뜻하지 않는다.
+- Migration preflight에서 persistent payload 2,165 files SHA failure 0, RTX 4090 runtime,
+  clean frozen source, local preprocessed staging과 네 정책 10k checkpoint를 재검증했다. 같은
+  main trajectory의 10k official validation은 B0/B1/A1/P case-first macro Dice
+  `0.745542/0.711985/0.733086/0.796770`이었다. P-B0 paired delta는 `+5.1228 pp`
+  (95% case-bootstrap `[+3.3762,+7.1029] pp`, case wins/losses `26/2`)였고 validation GT
+  voxel 수로만 정의한 네 소형 장기 exploratory macro는 `+7.3132 pp`
+  (`[+5.1442,+9.6632] pp`)였다. 이는 seed 55254의 10k 조기수렴 가설을 지지하지만
+  right-adrenal `+28.8046 pp`의 큰 기여, gallbladder `-3.6118 pp`, pancreas `-1.6681 pp`와
+  단일 seed 한계가 있다.
+- 같은 seed 55254 trajectory의 20k matched validation은 B0/B1/A1/P case-first macro
+  Dice `0.898442/0.896431/0.897731/0.908046`이었다. P-B0 paired delta는
+  `+0.9603 pp` (95% case-bootstrap `[+0.1235,+1.8249] pp`, case wins/losses
+  `21/7`)로 10k보다 작지만 양의 차이가 유지됐다. 네 소형 장기 exploratory macro는
+  `+0.3458 pp` (`[-1.0606,+1.5600] pp`)로 불확실했다. 따라서 discovery seed에서는
+  P의 early-learning advantage가 20k까지 지속된 뒤 30k에서 소멸하는 패턴이 관찰됐지만,
+  새 가설을 선택한 seed이므로 확인적 근거가 아니다. 다음 gate는 5k 간격 checkpoint 저장을
+  공통 trainer에 구현·검증하고, 사전 동결한 seeds 55255/55256/55257의 독립 replication을 실행하는 것이다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -514,19 +568,30 @@ Phase 4  Controlled Experiments                 IN PROGRESS
     |    Stage A: B0 30k+validation COMPLETE
     |             B1 30k+validation COMPLETE
     |             A1 30k+validation COMPLETE
-    |             P 30k NEXT
-    |    Stage B: 같은 4정책 × seeds 55255–55258 = replication 16 runs
-    |    Total intended: 20 runs, Stage A 통과 뒤 Stage B 진행
+    |             P 30k+validation COMPLETE
+    |             paired Dice·training diagnostics COMPLETE
+    |             NSD/HD95 COMPLETE — overall hypothesis unsupported
+    |             matched 10k convergence COMPLETE — P early advantage observed
+    |             matched 20k convergence COMPLETE — smaller P advantage persisted
+    |    Direction revision:
+    |      final 30k Dice-superiority claim RETIRED
+    |      10k learning-efficiency hypothesis SELECTED FOR REPLICATION
+    |      seed 55254 = development/discovery, confirmatory 분석에서 제외
+    |    Stage B: 같은 4정책 × seeds 55255/55256/55257 = replication 12 runs
+    |             checkpoints 5k/10k/15k/20k/25k/30k
+    |    Total intended: 16 runs / 4 seeds
     |    동일 data·network·loss·augmentation·updates
     |    같은 initialization routine·초기 weight hash 점검
-    |    checkpoint·prediction·sampler 비용 순차 수집
+    |    checkpoint·prediction·sampler 비용·wall-clock 순차 수집
     |
 Phase 5  Evaluation & Claim Validation           NOT STARTED
-    |    B0 vs B1: candidate-pool pipeline 차이
-    |    B1 vs A1: organ-wise adaptive allocation 효과
-    |    A1 vs P: error-type decomposition 추가 효과
-    |    B0 vs P: 최종 OLES3D의 baseline 대비 차이
-    |    Case/organ별 paired 차이·불확실성·비용·실패 사례
+    |    Confirmatory primary: replication seeds의 P-B0 Dice@10k
+    |    Rule: two-way seed×case paired-bootstrap CI lower > 0
+    |          + 새 replication seed 3개 모두 positive mean delta
+    |    Secondary: learning-curve AUC·updates/time-to-target·small/per-organ
+    |    Ablation: B0→B1→A1→P component 차이
+    |    Safety: 30k final Dice·NSD·HD95·empty·detached FP
+    |    Held-out test 49: protocol/code 동결 후 B0/P @10k·30k만 최종 평가
     |
 Phase 6  Paper, Presentation & Portfolio         NOT STARTED
          논문 → 제출 → 발표 → 재현 가능한 공개 산출물
@@ -564,8 +629,110 @@ Phase 2에서 예산상 training subset이 필요하면 Phase 1의 eligibility·
 불확실성 분석 생략을 의미하지 않으며, Phase 5에 필요한 만큼 설명·적용한다.
 
 Error-type의 개별 기여를 주장하려면 유형을 합친 adaptive 대조가 필요하다.
-Learning-progress는 선택 후보이며 필수 구현 범위로 확대하지 않는다.
+Learning-progress는 Stage-A 결과에서 생성된 새 핵심 가설이다. 따라서 seed 55254는 discovery
+evidence로만 표시하고, 새 endpoint를 보지 않은 seeds 55255/55256/55257의 사전 동결 분석만
+confirmatory evidence로 사용한다.
 새 backbone·attention·loss 추가 없이 sampling 비교에 집중한다.
+
+### Stage-B 동결 실험 구조
+
+현재 논문의 핵심 질문은 final 30k Dice superiority가 아니라 **동일 update budget에서의
+초기 학습 효율**이다. Seed 55254는 이 가설을 만든 discovery run이므로 확인적 분석에서
+제외한다. Stage B를 시작한 뒤 정책·threshold·checkpoint를 결과에 맞춰 다시 조정하지 않는다.
+
+| 구분 | 동결 설계 | 목적 |
+| --- | --- | --- |
+| Training | seeds `55255/55256/55257` × B0/B1/A1/P | 독립 replication 12 runs |
+| Budget | 각 run 30,000 updates | 정책 간 동일 optimizer budget |
+| Checkpoints | 5k/10k/15k/20k/25k/30k | 6-point learning curve |
+| Validation | 12 runs × 6 checkpoints = 72회, frozen 28 cases | primary·AUC·target crossing |
+| Primary | P−B0 case-first macro Dice @10k | discovery 가설의 직접 확인 |
+| Key secondary | normalized AUC 5k–30k | 전체 조기 학습곡선 요약 |
+| Target secondary | Dice 0.80/0.85/0.90 updates-to-target | update budget 절감량 |
+| Time secondary | 실제 누적 epoch time으로 time-to-target | observer overhead 포함 실용성 |
+| Ablation | B0→B1→A1→P @10k와 AUC | candidate/adaptation/error-type 역할 |
+| Safety | B0/P @30k Dice·NSD@3mm·HD95·empty·detached FP | ceiling·boundary regression 확인 |
+| Final test | Primary gate 통과 시 B0/P × 4 seeds × 10k/30k = 16 inference | frozen 49 cases 단 한 번 평가 |
+
+Primary 성공 조건은 새 seed 세 개의 P-B0 평균 차이가 각각 양수이고, seed와 validation case를
+함께 resample한 paired two-way bootstrap 95% interval의 lower bound가 0보다 큰 것이다.
+Only primary에 이 성공 규칙을 적용한다. AUC·target·organ·surface 결과는 effect size와 interval을
+보고하되 다중 secondary 중 유리한 결과를 새 primary처럼 승격하지 않는다.
+
+Updates-to-target는 각 seed의 validation macro curve에서 처음 target을 통과하는 두 checkpoint
+사이를 선형 보간한다. 관측 범위 밖 extrapolation은 금지하고 `not reached`로 기록한다.
+Time-to-target는 30k 전체 평균시간을 단순 곱하지 않고 각 checkpoint까지 실제로 누적된 logged
+epoch time을 사용한다. 이는 P의 observer overhead가 update 절감을 상쇄하는지 직접 보여준다.
+
+Stage B 실행 순서는 `공통 checkpoint 저장 구현 → 각 정책 2-update smoke → resume·SHA 감사 →
+12 runs 완료 → 72 validation 완료 → 동결 analysis 1회`다. 중간 결과를 보고 특정 정책이나 seed를
+중단하지 않는다. Primary가 실패하면 새 threshold를 찾아 가설을 구제하지 않고, 결과를
+불확실/재현 실패로 보고하고 test를 구제용으로 열지 않는다. Held-out test 49 cases는 Stage-B
+primary 성공 후 결과표와 analysis code까지 동결됐을 때만 접근한다. Test에서 primary가
+재현되지 않으면 최종 확인 실패로 보고하며 validation으로 돌아가 주장을 다시 바꾸지 않는다.
+
+### 5페이지 논문 뼈대
+
+작업 제목은 결과 확정 전까지 **장기별 오류 유형 적응형 패치 샘플링을 통한 3차원 복부 CT
+분할의 초기 학습 효율 향상**
+(*Improving Early Learning Efficiency in 3D Abdominal CT Segmentation via Organ-Wise
+Error-Type-Adaptive Patch Sampling*)으로 둔다. Stage-B replication이 실패하면 제목의
+`향상/Improving`을 제거한다.
+
+| 분량 | 절 | 반드시 담을 내용 |
+| ---: | --- | --- |
+| 0.35p | Abstract | 문제·P 정책·3-seed 설계·primary effect·30k safety |
+| 0.65p | 1. Introduction + Related Work | foreground sampling 한계, imbalance, 기여 3개 |
+| 1.25p | 2. Method | B0/B1/A1/P, observer, organ×error allocation, 동일 budget |
+| 0.65p | 3. Experimental Setup | 525/28/49 split, six checkpoints, metric·bootstrap |
+| 1.25p | 4. Results | 10k primary, six-point curve/AUC, ablation, 30k safety |
+| 0.40p | 5. Discussion & Conclusion | overhead, convergence parity, surface failure, 한계 |
+| 0.45p | References | nnU-Net·TotalSegmentator·adaptive sampling 핵심 문헌 |
+
+지면에는 `방법 schematic 1개`, `6-point learning curve 1개`, `primary+ablation table 1개`,
+`30k safety table 1개`만 우선 배치한다. 9장기 전체 per-organ 표, 모든 case 결과와 failure
+audit는 repository artifact로 제공하고 본문에서는 핵심 장기와 실패 양상만 요약한다.
+
+### Stage-B RunPod campaign과 경보
+
+Stage-B는 seeds `55255/55256/55257`을 각 `B0→P→B1→A1` 순서로 실행한다. B0와 P가
+끝나면 해당 seed의 10k official validation을 즉시 실행하고 seed-level P-B0 방향을 기록한다.
+P-B0가 0 이하이면 `PRIMARY_RISK_NONPOSITIVE` 경보를 만들지만 run을 중단하거나 정책을
+변경하지 않는다. Pseudo Dice는 train-patch health signal이므로 단일 epoch의 0이나 흔들림을
+official-validation outlier로 오판하지 않는다.
+
+RunPod `/workspace/oles3d`에서 campaign 시작:
+
+```bash
+cd /workspace/oles3d
+mkdir -p artifacts/nnunet/stage_b
+
+nohup bash -c '
+  cd /workspace/oles3d
+  set +e
+  bash research/cloud/runpod/run_stage_b_training.sh
+  code=$?
+  printf "%s\n" "$code" > artifacts/nnunet/stage_b/stage_b_training.exit_code
+  exit "$code"
+' > artifacts/nnunet/stage_b/stage_b_training_launcher.txt 2>&1 &
+
+echo $! > artifacts/nnunet/stage_b/stage_b_training.pid
+cat artifacts/nnunet/stage_b/stage_b_training.pid
+```
+
+WSL에서 60초 간격 상태·Windows popup 경보 감시. `<HOST>`와 `<PORT>`는 migration 뒤의
+SSH over exposed TCP 값으로 교체한다:
+
+```bash
+cd /home/anna/projects/oles3d
+bash research/cloud/runpod/monitor_stage_b.sh root@<HOST> <PORT>
+```
+
+Campaign source는 `run_stage_b_training.sh`, seed별 10k 방향 검사는
+`check_stage_b_primary_direction.py`, local watchdog은 `monitor_stage_b.sh`다. Training은
+5k/10k/15k/20k/25k/30k checkpoint를 저장하며, 완료 시 여섯 checkpoint와 네 정책의 동일
+seed initial-weight SHA를 검사한다. Campaign 완료 뒤 나머지 5k–30k 72 validation은 별도
+동결 명령으로 순차 실행한다.
 
 현재 보수 산출물: `1_1b_full_archive_identity.txt`,
 `1_2b_full_extraction_inventory.txt`, `1_4c_small_dataset_audit.txt/.json`,
@@ -1279,7 +1446,7 @@ error-map refresh·실패 재시도를 포함하지 않는다.
   budget으로 선택한다. 그렇지 않으면 한 번만 30k까지 연장하고 30k를 선택한다.
 - Stage A seed: `55254`를 B0/B1/A1/P 모두에 적용한다. Local B0 development run은
   hardware/runtime이 다르므로 main B0로 재사용하지 않는다. Stage A가 통과하면 Stage B에서
-  `55255`–`55258`을 네 정책 모두에 추가한다. 동일 seed는 model initialization 통제를
+  `55255`, `55256`, `55257`을 네 정책 모두에 추가한다. 동일 seed는 model initialization 통제를
   돕지만 기본 nondeterministic loader의 batch·augmentation exact replay를 보장하지 않는다.
 - Core comparators: B0 default, B1 matched static, A1 organ-wise adaptive, P organ-wise
   error-type adaptive. B1/A1/P는 candidate 정의·생성·갱신 cadence와 관측 비용을 같게
@@ -1294,18 +1461,23 @@ Comparator-count decision (`selected`, 2026-09-17; scale restored 2026-09-18): �
 candidate pool, organ-wise adaptation, error-type decomposition을 분리할 최소 실험군이다.
 B0/B1/A1/P 네 방법을 유지하며 B1/A1/P는 candidate 생성·갱신 cadence를 동일하게 하고
 allocation만 fixed→organ-wise→organ×error-type으로 변경한다. 먼저 seed 55254의 core
-4 runs를 완료하고, 이후 같은 네 방법을 추가 네 seed로 반복한다. 이 결정은 Phase 3 구현,
-Phase 4의 20 intended runs, Phase 5 contrast와 논문 claim wording에 적용한다. 다음 검증은
+4 runs를 완료하고, 이후 같은 네 방법을 추가 두 seed로 반복한다. 이 결정은 Phase 3 구현,
+Phase 4의 12 intended runs, Phase 5 contrast와 논문 claim wording에 적용한다. 다음 검증은
 B1/A1/P sampler contract와 synthetic/real-case audit다.
 
-Seed strategy (`selected`, 2026-09-18): 먼저 B0/B1/A1/P를 seed `55254`에서 끝까지 실행해
-core 4-policy comparison과 sampler implementation을 검증한다. 그 다음 common code·runtime·
-data·metric·30k budget을 동결한 채 seeds `55255`, `55256`, `55257`, `55258`을 네 정책에
-추가해 총 20 runs로 확장한다. Stage A 결과를 보고 유리한 method만 반복하지 않으며 Stage B에서
+Seed strategy (`selected`, revised 2026-09-19 by explicit user instruction): B0/B1/A1/P의
+seed `55254` Stage A는 30k 최종-Dice 우월성 가설을 지지하지 않았고, 같은 trajectory의 10k에서
+P 조기수렴 신호를 발견했다. 따라서 55254는 새 효율성 가설의 discovery seed로 표시한다.
+Common code·runtime·data·metric·30k horizon을 유지한 채 seeds `55255`, `55256`, `55257`을 네 정책에
+추가해 총 16 runs / 4 seeds로 확장한다. Stage B는 아직 미실행이므로 기존 run의 재실행은 필요 없다.
+세 replication seed에서도 run 변동 추정은 제한적이며, 추가 12 runs 모두의 초기화 일치·완료·
+평가를 확인한 뒤 seed 통계를 보고한다. Seed 55254에는 5k/15k/25k checkpoint가 없으므로
+재학습해 소급 생성하지 않는다. Six-point learning curve와 AUC는 55255/55256/55257에서만 계산하고,
+세 seed 공통 trajectory 비교는 10k/20k/30k로 제한한다. Stage A 결과를 보고 P만 반복하지 않으며 Stage B에서
 버그가 발견돼 code를 바꾸면 영향받은 모든 정책·seed를 같은 규칙으로 다시 실행한다. Stage A만
-완료된 시점에는 single-seed exploratory evidence로만 해석하고, seed 평균·분산과 training-run
-uncertainty 주장은 Stage B 전체 완료 뒤에만 허용한다. Case bootstrap은 seed replication을
-대체하지 않는다.
+완료된 시점에는 새 efficiency endpoint를 single-seed exploratory evidence로만 해석하고,
+confirmatory 판정에는 55255/55256/55257만 사용한다. 전체 4-seed 평균은 descriptive sensitivity로
+별도 보고한다. Case bootstrap은 seed replication을 대체하지 않는다.
 
 Plateau `0.5 percentage point`는 compute 제약을 위한 사전 실용 기준이며 통계적 유의성
 경계가 아니다. Phase 5의 paired uncertainty 분석과 구분한다. Phase 2.5a의 1-case
@@ -2021,8 +2193,174 @@ set -o pipefail
   2>&1 | tee artifacts/nnunet/3_6_frozen_experiment_protocol.txt
 ```
 
-다음 gate는 코드와 protocol을 commit/push하고 RunPod source를 동기화한 뒤, Phase 4 Stage A의
-B1 30k를 clean start하는 것이다. RunPod는 그 직전에만 deploy한다.
+### Phase 4.4 — Stage-A fixed-seed effectiveness analysis
+
+30k Dice·case paired delta·validation-case bootstrap 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet
+set -o pipefail
+
+.venv/bin/python research/nnunet/compare_stage_a_policies.py \
+  --b0 artifacts/nnunet/2_6g_b0_main_seed55254_30k_validation.json \
+  --b1 artifacts/nnunet/4_1b_b1_main_seed55254_30k_validation.json \
+  --a1 artifacts/nnunet/4_2b_a1_main_seed55254_30k_validation.json \
+  --p artifacts/nnunet/4_3b_p_main_seed55254_30k_validation.json \
+  --output-json artifacts/nnunet/4_4_stage_a_seed55254_30k_comparison.json \
+  --output-csv artifacts/nnunet/4_4_stage_a_seed55254_30k_case_deltas.csv \
+  2>&1 | tee artifacts/nnunet/4_4_stage_a_seed55254_30k_comparison.txt
+```
+
+30k training log의 epoch time·observer cost·Pseudo Dice threshold 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet
+set -o pipefail
+
+.venv/bin/python research/nnunet/analyze_stage_a_training_logs.py \
+  --b0 artifacts/nnunet/2_6f_b0_main_seed55254.txt \
+  --b1 artifacts/nnunet/4_1_b1_main_seed55254.txt \
+  --a1 artifacts/nnunet/4_2_a1_main_seed55254.txt \
+  --p artifacts/nnunet/4_3_p_main_seed55254.txt \
+  --output artifacts/nnunet/4_4_stage_a_seed55254_training_diagnostics.json \
+  2>&1 | tee artifacts/nnunet/4_4_stage_a_seed55254_training_diagnostics.txt
+```
+
+Secondary NSD 3 mm·HD95 mm 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet
+set -o pipefail
+
+{ time .venv/bin/python research/nnunet/evaluate_stage_a_surface_metrics.py \
+  --ground-truth-dir data/nnunet/nnUNet_raw/Dataset501_OLES3D9Organs/labelsVal \
+  --b0-prediction-dir data/nnunet/nnUNet_results/main/b0_seed_55254/official_validation/checkpoint_030000 \
+  --b1-prediction-dir data/nnunet/nnUNet_results/main/b1_seed_55254/official_validation/checkpoint_030000 \
+  --a1-prediction-dir data/nnunet/nnUNet_results/main/a1_seed_55254/official_validation/checkpoint_030000 \
+  --p-prediction-dir data/nnunet/nnUNet_results/main/p_seed_55254/official_validation/checkpoint_030000 \
+  --output-json artifacts/nnunet/4_4_stage_a_seed55254_30k_surface_metrics.json \
+  --output-csv artifacts/nnunet/4_4_stage_a_seed55254_30k_surface_metrics.csv; } \
+  2>&1 | tee artifacts/nnunet/4_4_stage_a_seed55254_30k_surface_metrics.txt
+```
+
+P-B0 HD95 증가량 상위 5개 case-organ의 6-connected component와 directed
+surface-distance 오류 형태 감사:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet
+set -o pipefail
+
+{ time .venv/bin/python research/nnunet/audit_stage_a_surface_failures.py \
+  --ground-truth-dir data/nnunet/nnUNet_raw/Dataset501_OLES3D9Organs/labelsVal \
+  --b0-prediction-dir data/nnunet/nnUNet_results/main/b0_seed_55254/official_validation/checkpoint_030000 \
+  --p-prediction-dir data/nnunet/nnUNet_results/main/p_seed_55254/official_validation/checkpoint_030000 \
+  --surface-csv artifacts/nnunet/4_4_stage_a_seed55254_30k_surface_metrics.csv \
+  --top-k 5 \
+  --output-json artifacts/nnunet/4_4_stage_a_seed55254_hd95_tail_audit.json \
+  --output-csv artifacts/nnunet/4_4_stage_a_seed55254_hd95_tail_audit.csv; } \
+  2>&1 | tee artifacts/nnunet/4_4_stage_a_seed55254_hd95_tail_audit.txt
+```
+
+이 감사는 결과를 본 뒤 고른 tail case의 실패 형태를 설명하는 diagnostic이며 정책 효과의
+confirmatory test가 아니다. 6-connected prediction component가 GT와 전혀 겹치면 detached
+prediction을, GT component가 prediction과 전혀 겹치지 않으면 missed GT component를
+지지한다. Directed surface distance는 어느 방향의 mismatch가 큰지 보여주는 voxel-sampled
+진단값이며, 앞선 surfel-weighted NSD·HD95를 대체하지 않는다.
+
+첫 두 명령은 agent가 실행해 artifact를 생성했다. Surface 명령은 agent가 9/28에서 사용자
+지시에 따라 중단한 뒤 사용자가 28/28을 `4m28.574s`에 완료했다. 이 단계에서 RunPod는
+필요 없고 Stop을 유지한다. 다음 연구 gate는 동일 main trajectory의 10k/20k official
+validation으로 early-learning efficiency를 검사하는 것이다. 이 검사를 완료하기 전에는
+Stage B multi-seed GPU run을 시작하지 않는다.
+
+### Phase 4.5 — Matched milestone learning-efficiency validation
+
+30k와 동일한 seed 55254 main trajectory의 10k checkpoint를 네 정책 모두 frozen official
+validation 28 cases에서 평가한다. RunPod `/workspace/oles3d`에서 실행하며 네 명령은 반드시
+순차 실행한다. 각 prediction directory의 inference contract가 checkpoint SHA와 설정을
+고정하므로 다른 checkpoint 결과와 섞지 않는다.
+
+```bash
+cd /workspace/oles3d
+source research/cloud/runpod/activate.sh
+mkdir -p artifacts/nnunet
+set -e -o pipefail
+export PYTHONUNBUFFERED=1
+
+model_directory="data/nnunet/nnUNet_results/main/b0_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DB0Main__nnUNetPlans__3d_fullres"
+{ time .venv/bin/python research/nnunet/evaluate_official_validation.py \
+  --checkpoint-name checkpoint_010000.pth \
+  --model-directory "${model_directory}" \
+  --prediction-dir data/nnunet/nnUNet_results/main/b0_seed_55254/official_validation/checkpoint_010000 \
+  --output-json artifacts/nnunet/4_5a_b0_main_seed55254_10k_validation.json \
+  --output-csv artifacts/nnunet/4_5a_b0_main_seed55254_10k_case_organ_dice.csv; } \
+  2>&1 | tee artifacts/nnunet/4_5a_b0_main_seed55254_10k_validation.txt
+
+model_directory="data/nnunet/nnUNet_results/main/b1_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DB1Static__nnUNetPlans__3d_fullres"
+{ time .venv/bin/python research/nnunet/evaluate_official_validation.py \
+  --checkpoint-name checkpoint_010000.pth \
+  --model-directory "${model_directory}" \
+  --prediction-dir data/nnunet/nnUNet_results/main/b1_seed_55254/official_validation/checkpoint_010000 \
+  --output-json artifacts/nnunet/4_5a_b1_main_seed55254_10k_validation.json \
+  --output-csv artifacts/nnunet/4_5a_b1_main_seed55254_10k_case_organ_dice.csv; } \
+  2>&1 | tee artifacts/nnunet/4_5a_b1_main_seed55254_10k_validation.txt
+
+model_directory="data/nnunet/nnUNet_results/main/a1_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DA1Adaptive__nnUNetPlans__3d_fullres"
+{ time .venv/bin/python research/nnunet/evaluate_official_validation.py \
+  --checkpoint-name checkpoint_010000.pth \
+  --model-directory "${model_directory}" \
+  --prediction-dir data/nnunet/nnUNet_results/main/a1_seed_55254/official_validation/checkpoint_010000 \
+  --output-json artifacts/nnunet/4_5a_a1_main_seed55254_10k_validation.json \
+  --output-csv artifacts/nnunet/4_5a_a1_main_seed55254_10k_case_organ_dice.csv; } \
+  2>&1 | tee artifacts/nnunet/4_5a_a1_main_seed55254_10k_validation.txt
+
+model_directory="data/nnunet/nnUNet_results/main/p_seed_55254/Dataset501_OLES3D9Organs/nnUNetTrainerOLES3DPAdaptive__nnUNetPlans__3d_fullres"
+{ time .venv/bin/python research/nnunet/evaluate_official_validation.py \
+  --checkpoint-name checkpoint_010000.pth \
+  --model-directory "${model_directory}" \
+  --prediction-dir data/nnunet/nnUNet_results/main/p_seed_55254/official_validation/checkpoint_010000 \
+  --output-json artifacts/nnunet/4_5a_p_main_seed55254_10k_validation.json \
+  --output-csv artifacts/nnunet/4_5a_p_main_seed55254_10k_case_organ_dice.csv; } \
+  2>&1 | tee artifacts/nnunet/4_5a_p_main_seed55254_10k_validation.txt
+```
+
+10k와 20k 네 정책 validation·paired comparison은 완료됐다. 10k P-B0는 `+5.1228 pp`,
+20k는 `+0.9603 pp`, 30k는 `-0.0139 pp`로 discovery seed에서 감소하는 조기 이점이
+관찰됐다. 세 checkpoint 사이 time-to-target는 직접 관측값이 아니라 선형 보간 추정이다.
+
+10k/20k/30k validation curve의 exploratory updates-to-target·time-to-target 재현:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet
+set -o pipefail
+
+.venv/bin/python research/nnunet/analyze_stage_a_efficiency.py \
+  --b0-10k artifacts/nnunet/4_5a_b0_main_seed55254_10k_validation.json \
+  --b0-20k artifacts/nnunet/4_5b_b0_main_seed55254_20k_validation.json \
+  --b0-30k artifacts/nnunet/2_6g_b0_main_seed55254_30k_validation.json \
+  --p-10k artifacts/nnunet/4_5a_p_main_seed55254_10k_validation.json \
+  --p-20k artifacts/nnunet/4_5b_p_main_seed55254_20k_validation.json \
+  --p-30k artifacts/nnunet/4_3b_p_main_seed55254_30k_validation.json \
+  --training-diagnostics artifacts/nnunet/4_4_stage_a_seed55254_training_diagnostics.json \
+  --targets 0.80 0.85 0.90 \
+  --output-json artifacts/nnunet/4_5c_stage_a_seed55254_efficiency.json \
+  --output-csv artifacts/nnunet/4_5c_stage_a_seed55254_efficiency.csv \
+  2>&1 | tee artifacts/nnunet/4_5c_stage_a_seed55254_efficiency.txt
+```
+
+관측 세 점 사이 선형 보간에서 P의 update saving은 Dice 0.80/0.85/0.90에 각각
+`3,271/2,048/1,343` updates였다. 그러나 P의 observer overhead를 포함한 logged epoch
+time으로 환산하면 wall-clock saving은 `+4.48/+0.76/-1.85 min`으로 감소해 Dice 0.90에서는
+오히려 느렸다. P@20k Dice `0.908046`은 B0 curve의 약 23,824 updates에 해당하지만,
+P@30k `0.923413`은 B0@30k `0.923552`에 도달하지 못했다. 따라서 현 증거는
+**초기 update efficiency**를 지지하지만, final-performance budget이나 모든 target에서의
+wall-clock 절감을 지지하지 않는다. 이 threshold들은 seed 55254 결과를 본 뒤 선택한
+exploratory 분석이며, Stage-B 전 동결 후 새 seeds 55255/55256/55257에서만 독립 평가한다.
 
 <a id="artifact-commands"></a>
 ### 산출물별 복사·실행 명령

@@ -4,3 +4,4 @@
 torch==2.13.0
 torchvision==0.28.0
 nnunetv2==2.8.1
+surface-distance==0.1

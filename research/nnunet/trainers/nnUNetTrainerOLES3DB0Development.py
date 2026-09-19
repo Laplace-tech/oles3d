@@ -18,10 +18,17 @@ from nnunetv2.utilities.helpers import empty_cache
 
 
 class nnUNetTrainerOLES3DB0Development(nnUNetTrainer):
-    """30k PolyLR horizon에서 10k·20k·30k B0 checkpoint 생성."""
+    """30k PolyLR horizon에서 5k 간격 milestone checkpoint 생성."""
 
     schedule_horizon_updates: int = 30_000
-    milestone_updates: tuple[int, ...] = (10_000, 20_000, 30_000)
+    milestone_updates: tuple[int, ...] = (
+        5_000,
+        10_000,
+        15_000,
+        20_000,
+        25_000,
+        30_000,
+    )
 
     def __init__(
         self,

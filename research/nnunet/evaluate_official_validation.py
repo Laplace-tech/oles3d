@@ -56,8 +56,11 @@ def parse_arguments() -> argparse.Namespace:
         "--checkpoint-name",
         required=True,
         choices=(
+            "checkpoint_005000.pth",
             "checkpoint_010000.pth",
+            "checkpoint_015000.pth",
             "checkpoint_020000.pth",
+            "checkpoint_025000.pth",
             "checkpoint_030000.pth",
         ),
     )
