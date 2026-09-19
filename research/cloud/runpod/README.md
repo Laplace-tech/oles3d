@@ -298,8 +298,8 @@ Network Volume은 별도의 storage resource이므로 Pod 정지 뒤에도 보�
 
 ## 11. B1 30k official validation
 
-B1 clean training은 2026-09-18에 완료했고 local checksum 회수도 통과했다. 다음 deploy에서
-아래 frozen official validation 28 cases부터 재개한다. Pseudo dice는 이 평가를 대신하지 않는다.
+B1 clean training은 2026-09-18에 완료했고 아래 frozen official validation도 2026-09-19에
+28/28 cases를 완료했다. 재현 명령을 보존한다. Pseudo dice는 이 평가를 대신하지 않는다.
 
 ```bash
 cd /workspace/oles3d
@@ -323,6 +323,9 @@ model_directory="data/nnunet/nnUNet_results/main/b1_seed_55254/Dataset501_OLES3D
 완료 조건은 B0와 동일한 28/28 prediction, exception 없음, finite Dice,
 Shape·affine 일치와 9-organ nonempty GT다. 이후 결과와 prediction을 local로 회수하고
 checksum 차이 0을 확인한 뒤 A1 30k로 진행한다.
+
+Observed B1 결과는 case-first macro Dice `0.922776`, empty prediction 전 장기 `0/28`,
+inference `341.6s`였다. Prediction 28개와 JSON/CSV의 local 회수·checksum 검증을 통과했다.
 
 ## 12. Pod restart 또는 automatic migration
 
