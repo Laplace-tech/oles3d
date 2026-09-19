@@ -38,14 +38,14 @@ cat "${runtime_marker}"
 milestones=(005000 010000 015000 020000 025000 030000)
 
 if [[ "$#" -ne 4 || "$1" != "--seed" || "$3" != "--method" ]]; then
-    echo "Usage: $0 --seed <55255|55256|55257> --method <b0|b1|a1|p>" >&2
+    echo "Usage: $0 --seed <55255|55256> --method <b0|b1|a1|p>" >&2
     exit 2
 fi
 
 seed="$2"
 method="$4"
 case "${seed}" in
-    55255|55256|55257) ;;
+    55255|55256) ;;
     *) echo "Invalid Stage-B seed: ${seed}" >&2; exit 2 ;;
 esac
 case "${method}" in

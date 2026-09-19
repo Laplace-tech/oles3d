@@ -39,7 +39,7 @@
     "network_loss_augmentation_optimizer_scheduler": "identical nnU-Net v2.8.1 plan and trainer lineage",
     "loader_reproducibility": "default nondeterministic workers; no bitwise reproducibility claim",
     "stage_a_seed": 55254,
-    "stage_b_seeds": [55255, 55256, 55257],
+    "stage_b_seeds": [55255, 55256],
     "stage_a_checkpoint_updates": [10000, 20000, 30000],
     "stage_b_checkpoint_updates": [5000, 10000, 15000, 20000, 25000, 30000],
     "stage_b_checkpoint_schedule_status": "Implemented in the common trainer; static contract passed; runtime milestone smoke pending",
@@ -105,12 +105,13 @@
     "stage_b_confirmatory_primary": {
       "question": "Does P improve 10k case-first macro Dice over B0 on independent replication seeds?",
       "development_seed_excluded": 55254,
-      "replication_seeds": [55255, 55256, 55257],
+      "replication_seeds": [55255, 55256],
       "contrast": "P minus B0 at 10000 optimizer updates",
       "inference_unit": "paired training seed and validation case",
-      "planned_interval": "two-way paired bootstrap over seeds and cases",
-      "success_rule": "95% two-way bootstrap interval lower bound above zero and positive seed-level mean delta in all three replication seeds",
-      "selection_disclosure": "Chosen after the seed-55254 Stage-A 10k discovery result; confirmation uses only new seeds"
+      "planned_interval": "two-way paired bootstrap over seeds and cases plus separate paired case-bootstrap intervals within each replication seed",
+      "success_rule": "95% two-way bootstrap interval lower bound above zero and positive seed-level mean delta in both replication seeds",
+      "selection_disclosure": "Chosen after the seed-55254 Stage-A 10k discovery result; confirmation uses only new seeds",
+      "claim_boundary": "With only two replication seeds, the seed-resampling distribution is sparse; report both seed-specific effects and do not claim broad training-seed population generalization"
     },
     "stage_b_efficiency_secondary": {
       "status": "Selected after Stage-A discovery and before Stage-B execution",
@@ -120,7 +121,7 @@
       "time_to_target": "Use actual cumulative logged epoch time at milestone checkpoints and the same local interpolation; include observer overhead",
       "analysis_unit": "Compute each curve within training seed using the same 28 paired validation cases, then summarize seeds and use paired seed-by-case resampling",
       "claim_boundary": "Update efficiency and wall-clock efficiency are separate; a reduction in updates does not establish a reduction in elapsed time",
-      "selection_disclosure": "Targets were selected after inspecting seed 55254 and are evaluated as prespecified secondary endpoints only on seeds 55255, 55256, and 55257"
+      "selection_disclosure": "Targets were selected after inspecting seed 55254 and are evaluated as prespecified secondary endpoints only on seeds 55255 and 55256"
     },
     "stage_b_key_secondary": [
       "B0/B1/A1/P case-first macro Dice at 5k, 10k, 15k, 20k, 25k, and 30k on replication seeds",
@@ -137,9 +138,9 @@
       "status": "Selected before Stage-B execution; held-out test remains unopened",
       "launch_gate": "Run only if the frozen Stage-B confirmatory primary success rule passes; otherwise preserve the test and do not use it to rescue the claim",
       "methods": ["B0", "P"],
-      "seeds": [55254, 55255, 55256, 55257],
+      "seeds": [55254, 55255, 55256],
       "checkpoint_updates": [10000, 30000],
-      "evaluations": 16,
+      "evaluations": 12,
       "cases": 49,
       "primary_role": "External confirmation of the frozen 10k P-B0 efficiency contrast",
       "safety_role": "Report 30k final Dice and surface guardrails without retuning",
@@ -158,16 +159,16 @@
   },
   "execution_order": {
     "stage_a": ["B0", "B1", "A1", "P"],
-    "stage_b": "Run three independent replication seeds 55255-55257 for all four methods; 16 total runs across 4 seeds including development seed 55254",
+    "stage_b": "Run two independent replication seeds 55255 and 55256 for all four methods; 12 total runs across 3 seeds including development seed 55254",
     "cloud_policy": "Deploy RunPod only for bounded smoke/main training/inference; stop between GPU-dependent gates"
   },
   "seed_plan_revision": {
     "date_kst": "2026-09-19",
     "authority": "Explicit user instruction",
-    "reason": "Explicit user expansion before Stage-B execution: retain the complete four-policy ablation and six-point learning curves while strengthening training-seed replication",
-    "scope": "Seed 55254 remains discovery-only for the new 10k hypothesis; all four methods add seeds 55255, 55256, and 55257 for replication",
-    "status": "Selected before Stage B execution; campaign and checkpoint schedule implemented; runtime smoke pending",
-    "limitation": "The efficiency endpoint was generated from Stage-A validation; three new seeds improve but do not eliminate training-seed uncertainty"
+    "reason": "Explicit user reduction for schedule constraints: retain the complete four-policy ablation and six-point learning curves, but remove seed 55257 before any Stage-B official-validation endpoint was observed",
+    "scope": "Seed 55254 remains discovery-only for the new 10k hypothesis; all four methods add seeds 55255 and 55256 for replication",
+    "status": "Selected while the first B0 seed-55255 training unit was running and before its first Stage-B official validation; seed 55257 is cancelled",
+    "limitation": "The efficiency endpoint was generated from Stage-A validation and only two new training seeds remain; training-seed uncertainty and generalization claims are therefore substantially limited"
   },
   "research_direction_revision": {
     "date_kst": "2026-09-19",
@@ -175,7 +176,7 @@
     "retired_claim": "P improves final 30k Dice over the nnU-Net B0 baseline",
     "new_claim_under_test": "Organ-wise error-type-adaptive patch sampling improves early learning efficiency at matched update budget, especially for small or difficult organs, while final performance and surface failure modes are reported as guardrails",
     "development_evidence": "At seed 55254, P-B0 macro Dice was +5.1228 percentage points at 10k (26 of 28 case wins) and +0.9603 points at 20k (21 of 28 case wins), while the 30k difference was -0.0139 points; these discovery-seed results suggest a transient early-learning advantage and are not confirmatory evidence",
-    "anti_hindsight_rule": "Do not count seed 55254 as confirmatory for the newly selected 10k endpoint; freeze Stage-B checkpoint, metric, comparison, and analysis code before seeds 55255-55257",
+    "anti_hindsight_rule": "Do not count seed 55254 as confirmatory for the newly selected 10k endpoint; keep the Stage-B checkpoint, metric, comparison, and analysis code frozen for seeds 55255 and 55256",
     "scope_guard": "No backbone, loss, augmentation, cohort, label, or held-out-test changes; novelty remains patch-sampling policy and learning efficiency"
   },
   "change_control": "Any scientific change after this freeze requires a recorded reason, affected methods, rerun scope, and no held-out-test-driven selection"
