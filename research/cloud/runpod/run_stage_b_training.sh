@@ -8,9 +8,23 @@ source research/cloud/runpod/activate.sh
 mkdir -p artifacts/nnunet/stage_b
 export PYTHONUNBUFFERED=1
 
-expected_seeds=(55255 55256 55257)
-methods=(b0 p b1 a1)
 milestones=(005000 010000 015000 020000 025000 030000)
+
+if [[ "$#" -ne 4 || "$1" != "--seed" || "$3" != "--method" ]]; then
+    echo "Usage: $0 --seed <55255|55256|55257> --method <b0|b1|a1|p>" >&2
+    exit 2
+fi
+
+seed="$2"
+method="$4"
+case "${seed}" in
+    55255|55256|55257) ;;
+    *) echo "Invalid Stage-B seed: ${seed}" >&2; exit 2 ;;
+esac
+case "${method}" in
+    b0|b1|a1|p) ;;
+    *) echo "Invalid Stage-B method: ${method}" >&2; exit 2 ;;
+esac
 
 if [[ -n "$(git status --porcelain)" ]]; then
     echo "ERROR: Stage-B source must be a clean Git commit." >&2
@@ -87,32 +101,37 @@ run_method() {
     echo "COMPLETE ${method} seed ${seed}"
 }
 
-validate_10k() {
+validate_checkpoint() {
     local seed="$1"
     local method="$2"
+    local milestone="$3"
     local trainer
     local model_dir
     local result_root
+    local updates
+    local checkpoint_label
     local output_json
     local output_csv
     local output_log
+    updates="$((10#${milestone}))"
+    checkpoint_label="$((updates / 1000))k"
     trainer="$(trainer_name "${method}")"
     result_root="data/nnunet/nnUNet_results/main/${method}_seed_${seed}"
     model_dir="${result_root}/Dataset501_OLES3D9Organs/${trainer}__nnUNetPlans__3d_fullres"
-    output_json="artifacts/nnunet/stage_b/5_2_${method}_seed${seed}_10k_validation.json"
-    output_csv="artifacts/nnunet/stage_b/5_2_${method}_seed${seed}_10k_validation.csv"
-    output_log="artifacts/nnunet/stage_b/5_2_${method}_seed${seed}_10k_validation.txt"
+    output_json="artifacts/nnunet/stage_b/5_2_${method}_seed${seed}_${checkpoint_label}_validation.json"
+    output_csv="artifacts/nnunet/stage_b/5_2_${method}_seed${seed}_${checkpoint_label}_validation.csv"
+    output_log="artifacts/nnunet/stage_b/5_2_${method}_seed${seed}_${checkpoint_label}_validation.txt"
 
     if [[ -s "${output_json}" ]]; then
-        echo "SKIP completed 10K validation ${method} seed ${seed}"
+        echo "SKIP completed ${checkpoint_label} validation ${method} seed ${seed}"
         return
     fi
 
     {
         time .venv/bin/python research/nnunet/evaluate_official_validation.py \
-            --checkpoint-name checkpoint_010000.pth \
+            --checkpoint-name "checkpoint_${milestone}.pth" \
             --model-directory "${model_dir}" \
-            --prediction-dir "${result_root}/official_validation/checkpoint_010000" \
+            --prediction-dir "${result_root}/official_validation/checkpoint_${milestone}" \
             --output-json "${output_json}" \
             --output-csv "${output_csv}"
     } 2>&1 | tee "${output_log}"
@@ -129,40 +148,18 @@ check_primary_direction() {
         2>&1 | tee "artifacts/nnunet/stage_b/5_2_seed${seed}_10k_primary_direction.txt"
 }
 
-verify_seed_initialization() {
-    local seed="$1"
-    local expected=""
-    local method
-    local metadata
-    local observed
-    for method in "${methods[@]}"; do
-        metadata="$(fold_directory "${method}" "${seed}")/oles3d_run_metadata.json"
-        observed="$(.venv/bin/python -c 'import json,sys; print(json.load(open(sys.argv[1]))["starting_weight_sha256"])' "${metadata}")"
-        if [[ -z "${expected}" ]]; then
-            expected="${observed}"
-        elif [[ "${observed}" != "${expected}" ]]; then
-            echo "ERROR: Initial-weight mismatch for seed ${seed}: ${method}" >&2
-            return 1
-        fi
-    done
-    printf '%s  seed=%s\n' "${expected}" "${seed}" \
-        > "artifacts/nnunet/stage_b/5_1_seed${seed}_initial_weight_sha256.txt"
-}
+run_method "${seed}" "${method}"
 
-for seed in "${expected_seeds[@]}"; do
-    # 핵심 contrast를 먼저 확보해 seed-level 방향성 경보 생성
-    run_method "${seed}" b0
-    run_method "${seed}" p
-    validate_10k "${seed}" b0
-    validate_10k "${seed}" p
-    check_primary_direction "${seed}"
-
-    # 방향성과 무관하게 사전 동결한 ablation 전부 완료
-    run_method "${seed}" b1
-    run_method "${seed}" a1
-    verify_seed_initialization "${seed}"
-    touch "artifacts/nnunet/stage_b/5_1_seed${seed}_ALL_TRAINING_COMPLETE"
+for milestone in "${milestones[@]}"; do
+    validate_checkpoint "${seed}" "${method}" "${milestone}"
 done
 
-touch artifacts/nnunet/stage_b/STAGE_B_ALL_TRAINING_COMPLETE
-echo "STAGE_B_ALL_TRAINING_COMPLETE"
+# 같은 seed의 B0/P unit이 모두 끝난 시점에만 primary 방향 경보 생성
+if [[ -s "artifacts/nnunet/stage_b/5_2_b0_seed${seed}_10k_validation.json" \
+   && -s "artifacts/nnunet/stage_b/5_2_p_seed${seed}_10k_validation.json" ]]; then
+    check_primary_direction "${seed}"
+fi
+
+unit_marker="artifacts/nnunet/stage_b/STAGE_B_${method^^}_SEED_${seed}_UNIT_COMPLETE"
+touch "${unit_marker}"
+echo "STAGE_B_UNIT_COMPLETE seed=${seed} method=${method}"

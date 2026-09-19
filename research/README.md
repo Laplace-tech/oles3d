@@ -693,12 +693,13 @@ Error-Type-Adaptive Patch Sampling*)으로 둔다. Stage-B replication이 실패
 `30k safety table 1개`만 우선 배치한다. 9장기 전체 per-organ 표, 모든 case 결과와 failure
 audit는 repository artifact로 제공하고 본문에서는 핵심 장기와 실패 양상만 요약한다.
 
-### Stage-B RunPod campaign과 경보
+### Stage-B RunPod unit과 경보
 
-Stage-B는 seeds `55255/55256/55257`을 각 `B0→P→B1→A1` 순서로 실행한다. B0와 P가
-끝나면 해당 seed의 10k official validation을 즉시 실행하고 seed-level P-B0 방향을 기록한다.
-P-B0가 0 이하이면 `PRIMARY_RISK_NONPOSITIVE` 경보를 만들지만 run을 중단하거나 정책을
-변경하지 않는다. Pseudo Dice는 train-patch health signal이므로 단일 epoch의 0이나 흔들림을
+Stage-B 실행 단위는 **seed 하나 × policy 하나의 30k training + 같은 policy의 six-checkpoint
+validation**이다. 한 unit이 끝나면 반드시 멈춰 결과를 회수·검증한 뒤 다음 unit을 시작한다.
+B0와 P unit이 같은 seed에서 모두 끝나면 10k seed-level P-B0 방향을 기록한다. P-B0가 0
+이하이면 `PRIMARY_RISK_NONPOSITIVE` 경보를 만들지만 완료된 결과를 버리거나 정책을 변경하지
+않는다. Pseudo Dice는 train-patch health signal이므로 단일 epoch의 0이나 흔들림을
 official-validation outlier로 오판하지 않는다.
 
 RunPod `/workspace/oles3d`에서 campaign 시작:
@@ -707,17 +708,21 @@ RunPod `/workspace/oles3d`에서 campaign 시작:
 cd /workspace/oles3d
 mkdir -p artifacts/nnunet/stage_b
 
-nohup bash -c '
+seed=55255
+method=b0
+unit_name="seed${seed}_${method}"
+
+nohup bash -c "
   cd /workspace/oles3d
   set +e
-  bash research/cloud/runpod/run_stage_b_training.sh
-  code=$?
-  printf "%s\n" "$code" > artifacts/nnunet/stage_b/stage_b_training.exit_code
-  exit "$code"
-' > artifacts/nnunet/stage_b/stage_b_training_launcher.txt 2>&1 &
+  bash research/cloud/runpod/run_stage_b_training.sh --seed ${seed} --method ${method}
+  code=\$?
+  printf '%s\n' \"\$code\" > artifacts/nnunet/stage_b/${unit_name}.exit_code
+  exit \"\$code\"
+" > "artifacts/nnunet/stage_b/${unit_name}_launcher.txt" 2>&1 &
 
-echo $! > artifacts/nnunet/stage_b/stage_b_training.pid
-cat artifacts/nnunet/stage_b/stage_b_training.pid
+echo $! > "artifacts/nnunet/stage_b/${unit_name}.pid"
+cat "artifacts/nnunet/stage_b/${unit_name}.pid"
 ```
 
 WSL에서 60초 간격 상태·Windows popup 경보 감시. `<HOST>`와 `<PORT>`는 migration 뒤의
@@ -725,14 +730,13 @@ SSH over exposed TCP 값으로 교체한다:
 
 ```bash
 cd /home/anna/projects/oles3d
-bash research/cloud/runpod/monitor_stage_b.sh root@<HOST> <PORT>
+bash research/cloud/runpod/monitor_stage_b.sh root@<HOST> <PORT> 55255 b0
 ```
 
-Campaign source는 `run_stage_b_training.sh`, seed별 10k 방향 검사는
+Unit source는 `run_stage_b_training.sh`, seed별 10k 방향 검사는
 `check_stage_b_primary_direction.py`, local watchdog은 `monitor_stage_b.sh`다. Training은
 5k/10k/15k/20k/25k/30k checkpoint를 저장하며, 완료 시 여섯 checkpoint와 네 정책의 동일
-seed initial-weight SHA를 검사한다. Campaign 완료 뒤 나머지 5k–30k 72 validation은 별도
-동결 명령으로 순차 실행한다.
+policy validation 결과를 모두 검사한다. Unit 완료 뒤 다음 seed/policy를 자동 시작하지 않는다.
 
 현재 보수 산출물: `1_1b_full_archive_identity.txt`,
 `1_2b_full_extraction_inventory.txt`, `1_4c_small_dataset_audit.txt/.json`,
