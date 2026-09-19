@@ -10,6 +10,7 @@ dataset_name="Dataset501_OLES3D9Organs"
 source_dataset="${project_root}/data/nnunet/nnUNet_preprocessed/${dataset_name}"
 local_parent="${1:-/root/oles3d_runtime/nnUNet_preprocessed}"
 local_dataset="${local_parent}/${dataset_name}"
+ready_marker="${local_parent}/.oles3d_staging_valid"
 
 if [[ ! -d "${source_dataset}" ]]; then
   printf 'Missing persistent preprocessed dataset: %s\n' "${source_dataset}" >&2
@@ -33,6 +34,7 @@ if (( effective_capacity_kib < required_kib + safety_margin_kib )); then
 fi
 
 mkdir -p "${local_dataset}"
+rm -f "${ready_marker}"
 rsync -a --no-owner --no-group --omit-dir-times --info=progress2 --partial \
   "${source_dataset}/" "${local_dataset}/"
 
@@ -63,7 +65,13 @@ fi
 
 file_count="$(wc -l < "${temporary_directory}/source_files.txt")"
 size_bytes="$(du -sb "${local_dataset}" | awk '{print $1}')"
+{
+  printf 'dataset=%s\n' "${dataset_name}"
+  printf 'files=%s\n' "${file_count}"
+  printf 'bytes=%s\n' "${size_bytes}"
+} > "${ready_marker}"
 printf 'Local staging valid: True\n'
 printf 'Files:               %s\n' "${file_count}"
 printf 'Bytes:               %s\n' "${size_bytes}"
 printf 'Training override:   export nnUNet_preprocessed=%q\n' "${local_parent}"
+printf 'Ready marker:        %s\n' "${ready_marker}"

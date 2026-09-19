@@ -18,8 +18,9 @@ source "${runpod_project_root}/research/environment/nnunet_paths.sh"
 export PIP_CACHE_DIR="${runpod_project_root}/.cache/pip"
 export TORCHINDUCTOR_CACHE_DIR="${runpod_project_root}/.cache/torchinductor"
 
-# Frozen training runtime 기본값
+# 현재 migration host의 실제 CFS quota(6.8 cores)에 맞춘 기본값.
+# Stage-B runner도 이 값을 다시 고정해 정책 간 runtime을 동일하게 유지.
 export PYTHONUNBUFFERED=1
-export nnUNet_n_proc_DA=12
+export nnUNet_n_proc_DA=4
 
 unset runpod_project_root

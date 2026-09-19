@@ -135,14 +135,19 @@ set -o pipefail
   2>&1 | tee artifacts/cloud/runpod_local_staging.txt
 ```
 
-완료 조건은 `Local staging valid: True`다. Training command에서 activation 뒤 다음 override를
-명시한다.
+완료 조건은 `Local staging valid: True`와 `.oles3d_staging_valid` marker 생성이다.
+Stage-B unit runner는 이 marker와 dataset 구조를 강제하고 다음 경로를 자동 적용한다.
 
 ```bash
 export nnUNet_preprocessed=/root/oles3d_runtime/nnUNet_preprocessed
 ```
 
 Model result와 artifact 경로는 `/workspace`에 유지한다.
+
+Migration host가 논리 CPU 수보다 낮은 CFS quota를 부여할 수 있으므로 `nproc`만으로 worker를
+결정하지 않는다. 2026-09-19 host는 32 logical CPU를 노출했지만 quota는 6.8 cores였다.
+Stage B는 12 training + 6 validation workers의 oversubscription을 피하도록
+`nnUNet_n_proc_DA=4`(training 4, validation 2)를 모든 policy와 seed에 공통 적용한다.
 
 ## 7. Qualification pilot
 
