@@ -61,7 +61,7 @@ Phase 3          COMPLETE — B1/A1/P sampler·비교 protocol 동결
 Phase 3.2 B1 implementation COMPLETE; B1 30k는 Phase 4에서 완료·validation 대기
 Phase 3.3 A1 implementation COMPLETE; A1 30k 성능 실험은 Phase 4에서 실행
 Phase 3.4 P implementation COMPLETE; P 30k 성능 실험은 Phase 4에서 실행
-Phase 4          Stage A 진행 중 — B0/B1 완료, A1 30k NEXT
+Phase 4          Stage A 진행 중 — B0/B1/A1 완료, P 30k NEXT
 Multi-seed replication은 미실행·미검증
 ```
 
@@ -471,7 +471,12 @@ Multi-seed replication은 미실행·미검증
   B0 `0.923552` 대비 차이는 `-0.000776`이며 단일 seed에서 B1 우월성 근거가 아니다.
   Prediction 28개와 JSON/CSV를 local로 회수했고 remote checksum 차이 0을 확인했다.
   평가 source는 clean commit `6f386e915dcd66d420fd23565a88c096ac36a327`였다.
-  다음 gate는 동일 runtime·seed·budget의 A1 30k clean training이다.
+  A1은 clean commit `3b58a86e478b0d28ecbc0f4564c36fa24c30e447`에서 30,000 updates를
+  `72m56.900s`에 완료했다. Epoch-120 candidate archive 525/525, organ-learning state와
+  checkpoint를 함께 보존했다. Frozen official validation 28/28의 case-first macro Dice는
+  `0.923548`, 전 장기 empty prediction `0/28`, inference `341.1s`였다. 이는 B1 대비
+  `+0.000772`, B0 대비 `-0.000004`로 단일 seed에서 사실상 동률이다. 다음 gate는 동일
+  runtime·seed·budget에서 explicit organ×error-type allocation을 적용하는 P 30k다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -508,7 +513,8 @@ Phase 3  OLES3D Sampler & Protocol               COMPLETE
 Phase 4  Controlled Experiments                 IN PROGRESS
     |    Stage A: B0 30k+validation COMPLETE
     |             B1 30k+validation COMPLETE
-    |             A1 30k NEXT / P NOT STARTED
+    |             A1 30k+validation COMPLETE
+    |             P 30k NEXT
     |    Stage B: 같은 4정책 × seeds 55255–55258 = replication 16 runs
     |    Total intended: 20 runs, Stage A 통과 뒤 Stage B 진행
     |    동일 data·network·loss·augmentation·updates
