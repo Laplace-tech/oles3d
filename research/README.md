@@ -65,8 +65,8 @@ Phase 4          Stage A COMPLETE — B0/B1/A1/P 30k+validation 완료
   4.4           Seed 55254 paired Dice·training-log 분석 완료
                  NSD·HD95·10k·20k efficiency 완료
 Stage B          Seeds 55255/55256/55257 × 4정책 efficiency replication 준비 중
-  infra repair   Initial B0 seed 55255 run interrupted before 5k;
-                 local staging + 4-worker runtime으로 clean restart 예정
+  infra gate     Initial B0 seed 55255 attempts interrupted before 5k;
+                 replacement host qualification 후 clean restart 예정
 ```
 
 - Small: 잘못된 Full 해제 과정에서 `small/`도 소실된 상태를 확인. 공식 MD5·CRC를
@@ -705,13 +705,16 @@ B0와 P unit이 같은 seed에서 모두 끝나면 10k seed-level P-B0 방향을
 official-validation outlier로 오판하지 않는다.
 
 2026-09-19 최초 B0 seed 55255 run은 epoch 10 시점에 중단했다. RunPod UI와 달리
-host의 실제 CFS CPU quota는 6.8 cores였고, workers 12가 training 12 + validation 6
-process를 생성해 GPU utilization이 0–100% 사이로 끊겼다. Epoch 1–9은
-66–73초였으며 OOM·NaN은 없었다. 5k milestone 전이므로 이 run은 연구 결과에
-포함하지 않고 보존만 한다. Stage B는 container-local preprocessed mirror와
-`nnUNet_n_proc_DA=4`를 모든 policy·seed에 공통 적용한다. 이는 sampling·loss·update
-budget 변경이 아니다. Discovery seed와 replication host가 다르므로 wall-clock 절대값은
-Stage B 내부에서만 비교하고 primary는 계속 update-based Dice @10k로 유지한다.
+host의 실제 CFS CPU quota는 6.8 cores였고, network data + workers 12에서 epoch
+1–9가 66–73초였다. Local data + workers 4 수정은 epoch 1–2를 90–94초로 악화시켜
+두 번째로 중단했다. 추가 local data + workers 12 100-update pilot의 steady mean
+iteration은 0.5022초, data-wait p95는 0.9793초로, 정상 host의 0.1639초보다
+3.06배 느렸다. GPU utilization이 자주 0%로 떨어지고 OOM·NaN은 없어 CPU/data
+pipeline starvation으로 판정했다. 모두 5k milestone 전이므로 연구 결과에 포함하지
+않고 archive로만 보존한다. Stage B는 local staging 후 `workers=12` 100-update runtime
+qualification을 통과한 replacement host에서 처음부터 재시작한다. Discovery seed와 replication
+host가 다르므로 wall-clock 절대값은 Stage B 내부에서만 비교하고 primary는 계속
+update-based Dice @10k로 유지한다.
 
 Pod 생성·migration 후 unit 시작 전 1회 local staging:
 
@@ -724,8 +727,15 @@ set -o pipefail
   2>&1 | tee artifacts/cloud/runpod_local_staging.txt
 ```
 
-`Local staging valid: True`를 확인한 뒤만 unit을 시작한다. `run_stage_b_training.sh`는
-staging marker·dataset 구조가 없으면 training 전에 실패하며, training read는
+`Local staging valid: True`를 확인한 뒤 runtime gate를 실행한다:
+
+```bash
+cd /workspace/oles3d
+bash research/cloud/runpod/qualify_stage_b_runtime.sh
+```
+
+`Stage-B runtime qualified: True`까지 확인한 뒤만 unit을 시작한다.
+`run_stage_b_training.sh`는 staging·runtime marker가 없으면 training 전에 실패하며, training read는
 `/root/oles3d_runtime/nnUNet_preprocessed`에서 수행한다. Result·checkpoint·artifact는
 영속 Network Volume인 `/workspace`에 그대로 저장한다.
 
@@ -1730,7 +1740,8 @@ qualification gate를 추가했다. 이는 연구 질문·sampler·data split·m
 | `sync_payload.sh` | source, frozen cohort manifest, train preprocessed 525, raw validation 28의 resumable SSH 전송 | terminal transfer log |
 | `bootstrap.sh` | persistent `.venv`, exact dependency, CUDA·nnU-Net 검증 | `runpod_runtime.{json,txt}`, `runpod_pip_freeze.txt` |
 | `verify_runpod_runtime.py` | GPU·version·disk·data count·patch/batch 계약 검증 | `runpod_runtime.{json,txt}` |
-| `activate.sh` | venv, nnU-Net path, persistent cache, workers 4 활성화 | 없음 |
+| `activate.sh` | venv, nnU-Net path, persistent cache, workers 12 활성화 | 없음 |
+| `qualify_stage_b_runtime.sh` | CFS quota·100-update throughput gate | `runtime_qualification.{json,txt}` |
 | `stage_preprocessed.sh` | persistent train data의 local staging과 checksum 검증 | `runpod_local_staging.txt` |
 | `run_b0_main.py` | clean source·frozen cohort를 강제한 cloud B0 30k entry point | main checkpoint·run metadata |
 

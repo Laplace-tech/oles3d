@@ -22,12 +22,18 @@ if [[ ! -f "${local_staging_marker}" \
 fi
 export nnUNet_preprocessed="${local_preprocessed_parent}"
 
-# Migration host는 32 logical CPU를 노출하지만 CFS quota는 6.8 cores다.
-# 12 train + 6 validation workers가 GPU starvation을 일으켰으므로 Stage B는
-# train 4 + validation 2 workers로 고정.
-export nnUNet_n_proc_DA=4
+# Stage-A와 같은 worker 수를 유지하되, 현재 container에서 통과한 runtime
+# qualification marker가 없으면 장시간 experiment를 시작하지 않음.
+runtime_marker="/root/oles3d_runtime/.stage_b_runtime_qualified"
+if [[ ! -s "${runtime_marker}" ]]; then
+    echo "ERROR: Stage-B runtime qualification marker is missing." >&2
+    echo "Run: bash research/cloud/runpod/qualify_stage_b_runtime.sh" >&2
+    exit 1
+fi
+export nnUNet_n_proc_DA=12
 echo "Stage-B runtime: nnUNet_preprocessed=${nnUNet_preprocessed}"
 echo "Stage-B runtime: nnUNet_n_proc_DA=${nnUNet_n_proc_DA}"
+cat "${runtime_marker}"
 
 milestones=(005000 010000 015000 020000 025000 030000)
 

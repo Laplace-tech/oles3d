@@ -145,9 +145,17 @@ export nnUNet_preprocessed=/root/oles3d_runtime/nnUNet_preprocessed
 Model result와 artifact 경로는 `/workspace`에 유지한다.
 
 Migration host가 논리 CPU 수보다 낮은 CFS quota를 부여할 수 있으므로 `nproc`만으로 worker를
-결정하지 않는다. 2026-09-19 host는 32 logical CPU를 노출했지만 quota는 6.8 cores였다.
-Stage B는 12 training + 6 validation workers의 oversubscription을 피하도록
-`nnUNet_n_proc_DA=4`(training 4, validation 2)를 모든 policy와 seed에 공통 적용한다.
+결정하지 않는다. Stage B는 `nnUNet_n_proc_DA=12`를 유지하고, 실제 quota와
+100-update throughput을 검사하는 `qualify_stage_b_runtime.sh`를 통과한 host에서만 시작한다.
+현재 gate는 CFS quota 8.0 cores 이상, steady mean iteration 0.25초 이하,
+data-wait p95 0.50초 이하를 요구한다.
+
+```bash
+cd /workspace/oles3d
+bash research/cloud/runpod/qualify_stage_b_runtime.sh
+```
+
+`Stage-B runtime qualified: True`가 없으면 main training을 시작하지 않는다.
 
 ## 7. Qualification pilot
 
