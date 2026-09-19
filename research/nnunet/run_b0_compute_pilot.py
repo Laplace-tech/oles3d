@@ -29,6 +29,12 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--warmup-updates", type=int, default=10)
     parser.add_argument("--report-every", type=int, default=10)
     parser.add_argument("--num-augmentation-workers", type=int, default=4)
+    parser.add_argument(
+        "--preprocessed-root",
+        type=Path,
+        default=PREPROCESSED_ROOT,
+        help="nnUNet_preprocessed root; RunPod local staging benchmark 지원",
+    )
     parser.add_argument("--seed", type=int, default=55254)
     parser.add_argument(
         "--trainer",
@@ -82,8 +88,15 @@ def run_pilot(arguments: argparse.Namespace) -> dict[str, Any]:
     torch.manual_seed(arguments.seed)
     torch.cuda.manual_seed_all(arguments.seed)
 
+    preprocessed_root = arguments.preprocessed_root.resolve()
+    dataset_root = preprocessed_root / "Dataset501_OLES3D9Organs"
+    if not (dataset_root / "nnUNetPlans.json").is_file():
+        raise FileNotFoundError(
+            f"전처리 plan 누락: {dataset_root / 'nnUNetPlans.json'}",
+        )
+
     os.environ["nnUNet_raw"] = str(RAW_ROOT)
-    os.environ["nnUNet_preprocessed"] = str(PREPROCESSED_ROOT)
+    os.environ["nnUNet_preprocessed"] = str(preprocessed_root)
     os.environ["nnUNet_n_proc_DA"] = str(arguments.num_augmentation_workers)
     os.environ["OLES3D_RUN_SEED"] = str(arguments.seed)
 
@@ -103,10 +116,10 @@ def run_pilot(arguments: argparse.Namespace) -> dict[str, Any]:
                 nnUNetTrainerOLES3DB0Main as trainer_class,
             )
 
-        plans = json.loads((DATASET_ROOT / "nnUNetPlans.json").read_text())
+        plans = json.loads((dataset_root / "nnUNetPlans.json").read_text())
         # nnU-Net v2.8.1 trainer 생성자가 plans에서 직접 꺼내는 runtime flag
         plans["continue_training"] = False
-        dataset_json = json.loads((DATASET_ROOT / "dataset.json").read_text())
+        dataset_json = json.loads((dataset_root / "dataset.json").read_text())
         trainer = trainer_class(
             plans=plans,
             configuration="3d_fullres",
