@@ -43,6 +43,12 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument("--output-csv", type=Path, required=True)
     parser.add_argument(
+        "--analysis-stage",
+        choices=("Stage-A", "Stage-B"),
+        default="Stage-A",
+    )
+    parser.add_argument("--training-seed", type=int, default=55_254)
+    parser.add_argument(
         "--checkpoint-updates",
         type=int,
         choices=(10_000, 20_000, 30_000),
@@ -290,11 +296,11 @@ def main() -> None:
         "schema_version": 1,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "scope": (
-            "Stage-A fixed-seed official-validation policy comparison at "
+            f"{arguments.analysis_stage} fixed-seed official-validation policy comparison at "
             f"{arguments.checkpoint_updates} updates"
         ),
         "checkpoint_updates": arguments.checkpoint_updates,
-        "seed": 55254,
+        "seed": arguments.training_seed,
         "case_count": 28,
         "bootstrap": {
             "unit": "paired validation case",
@@ -326,7 +332,10 @@ def main() -> None:
         },
         "contrasts": contrasts,
         "limitations": [
-            "Only seed 55254 is available, so training-run variability is not estimated.",
+            (
+                f"Only seed {arguments.training_seed} is included in this artifact, so "
+                "training-run variability is not estimated."
+            ),
             "Case bootstrap quantifies validation-case uncertainty conditional on fixed trained weights.",
             "No multiplicity-adjusted confirmatory inference is claimed for nine organ-wise comparisons.",
             (
@@ -350,8 +359,8 @@ def main() -> None:
         writer.writerows(case_rows)
 
     print(
-        "=== Stage-A Policy Comparison "
-        f"({arguments.checkpoint_updates} updates, seed 55254) ==="
+        f"=== {arguments.analysis_stage} Policy Comparison "
+        f"({arguments.checkpoint_updates} updates, seed {arguments.training_seed}) ==="
     )
     print("Comparability checks: PASS")
     print(f"Exploratory four smallest organs: {', '.join(smallest_organs)}")
