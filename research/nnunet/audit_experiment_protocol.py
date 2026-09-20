@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Frozen Stage-A protocol의 file identity와 핵심 계약 감사."""
+"""Frozen OLES3D protocol의 input identity와 핵심 계약 감사."""
 
 from __future__ import annotations
 
@@ -105,14 +105,23 @@ def main() -> None:
         != expected_cloud_runtime
     ):
         raise AssertionError("Cloud initialization runtime 동결 불일치")
-    if protocol["evaluation"]["primary"] != (
+    evaluation = protocol["evaluation"]
+    if evaluation["metric"] != (
         "case-first macro Dice over all 9 selected organs"
     ):
         raise AssertionError("Primary metric 불일치")
+    expected_stage_b_seeds = [55_255, 55_256, 55_257]
+    if common_training["stage_b_seeds"] != expected_stage_b_seeds:
+        raise AssertionError("Stage-B replication seed 불일치")
+    confirmatory = evaluation["stage_b_confirmatory_primary"]
+    if confirmatory["replication_seeds"] != expected_stage_b_seeds:
+        raise AssertionError("Stage-B confirmatory seed 불일치")
+    if "all three replication seeds" not in confirmatory["success_rule"]:
+        raise AssertionError("Stage-B three-seed success rule 불일치")
 
     result = {
         "schema_version": 1,
-        "scope": "frozen_stage_a_protocol_identity",
+        "scope": "frozen_oles3d_protocol_identity",
         "protocol": str(PROTOCOL_PATH.relative_to(PROJECT_ROOT)),
         "protocol_status": protocol["status"],
         "observed_input_sha256": observed_hashes,
@@ -122,7 +131,9 @@ def main() -> None:
         "common_total_updates": 30_000,
         "initial_weight_identities": weight_identities,
         "main_cloud_initialization_runtime": expected_cloud_runtime,
-        "primary_metric": protocol["evaluation"]["primary"],
+        "primary_metric": evaluation["metric"],
+        "stage_b_replication_seeds": expected_stage_b_seeds,
+        "stage_b_success_rule": confirmatory["success_rule"],
         "status": "PASS",
     }
     arguments.output.write_text(

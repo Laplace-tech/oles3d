@@ -1,6 +1,6 @@
 # OLES3D Research
 
-현재 연구 상태·결정·실행 명령의 기준 문서. 갱신: 2026-09-19.
+현재 연구 상태·결정·실행 명령의 기준 문서. 갱신: 2026-09-20.
 [프로젝트 소개](../README.md) · [학습 목차](../studies/prerequisites/README.md) · [행동 규칙](../AGENTS.md)
 
 바로가기: [현재 위치](#checkpoint) · [통일 로드맵](#roadmap) ·
@@ -64,9 +64,14 @@ Phase 3.4 P implementation COMPLETE; Phase 4 30k+validation 완료
 Phase 4          Stage A COMPLETE — B0/B1/A1/P 30k+validation 완료
   4.4           Seed 55254 paired Dice·training-log 분석 완료
                  NSD·HD95·10k·20k efficiency 완료
-Stage B          Seeds 55255/55256 × 4정책 efficiency replication 실행 중
-  infra gate     Initial B0 seed 55255 attempts interrupted before 5k;
-                 replacement host qualification 후 clean restart 예정
+Stage B          Seeds 55255/55256/55257 × 4정책 efficiency replication 실행 중
+  seed 55255     B0/P/B1/A1 30k+six-point validation 완료
+  single-seed    P-B0 @10k +4.3806 pp / AUC +0.8857 pp
+                 A1-B1 @10k +3.0697 pp / P-A1 +0.2423 pp
+                 seeds 55256/55257 전이므로 confirmatory 판정 아님
+  seed 55256     사용자 보고 기준 B0/B1 unit 완료, A1→P campaign 실행 중
+                 원격 artifact 회수·checksum 검증 전이므로 수치 결과 미기록
+  seed 55257     B0/B1/A1/P 예정; 현재 seed55256 campaign 종료 후 시작
 ```
 
 - Small: 잘못된 Full 해제 과정에서 `small/`도 소실된 상태를 확인. 공식 MD5·CRC를
@@ -532,7 +537,59 @@ Stage B          Seeds 55255/55256 × 4정책 efficiency replication 실행 중
   `+0.3458 pp` (`[-1.0606,+1.5600] pp`)로 불확실했다. 따라서 discovery seed에서는
   P의 early-learning advantage가 20k까지 지속된 뒤 30k에서 소멸하는 패턴이 관찰됐지만,
   새 가설을 선택한 seed이므로 확인적 근거가 아니다. 다음 gate는 5k 간격 checkpoint 저장을
-  공통 trainer에 구현·검증하고, 사전 동결한 seeds 55255/55256의 독립 replication을 실행하는 것이다.
+  공통 trainer에 구현·검증하고, replication seeds 55255/55256/55257에서 독립 반복하는 것이다.
+- Stage-B seed 55255 B0/P unit과 각 six-point validation을 완료했다. B0/P macro Dice는
+  5k `0.501591/0.511425`, 10k `0.764512/0.808318`, 15k `0.866557/0.867072`,
+  20k `0.902164/0.898446`, 25k `0.913881/0.914061`, 30k `0.925029/0.922194`다.
+  P-B0 @10k는 `+4.3806 pp`, 이 trained pair에 조건부인 paired case-bootstrap 95% CI는
+  `[+1.6023,+6.8604] pp`, case wins/losses `23/5`였다. 5k–30k normalized AUC는
+  B0/P `0.832085/0.840941`로 P가 `+0.8857 pp` 높았다. Target Dice 0.80은 P가
+  약 `1,879 updates`, 0.85는 `642 updates`를 절감했지만 0.90에서는 오히려
+  `801 updates`가 더 필요했다. P@10k Dice는
+  B0 curve의 약 `12,146 updates`에 해당해 `2,146 updates`의 초기 이점을 보였지만,
+  15k 이후 차이는 소멸했다. 10k 네 소형 장기 macro는 P-B0 `+8.3414 pp`였으나 right
+  adrenal `+47.8091 pp`가 주도했고 gallbladder `-8.5760 pp`, left adrenal
+  `-7.3964 pp`여서 균일한 small-organ 개선이 아니다. 이는 첫 independent seed에서
+  discovery 방향이 재현된 고무적인 결과지만 seeds 55256/55257과 frozen two-way bootstrap 전에는
+  confirmatory claim이 아니다. 근거:
+  `artifacts/nnunet/stage_b/5_3_seed55255_b0_p_efficiency.{json,txt}`와 두 CSV.
+- Stage-B seed 55255 B1 unit도 30k training과 six-point validation을 완료했다. B1 macro
+  Dice는 5k/10k/15k/20k/25k/30k에서 `0.522438/0.775198/0.872139/0.909395/
+  0.918829/0.923829`였다. B1-B0 paired delta는 각각 `+2.0847/+1.0686/+0.5582/
+  +0.7230/+0.4949/-0.1201 pp`였고, conditional case-bootstrap CI가 0보다 큰 시점은
+  5k(`[+1.1174,+3.1729] pp`)와 20k(`[+0.2215,+1.3087] pp`)였다. 5k–30k normalized
+  AUC는 `0.839739`로 B0 `0.832085`보다 `+0.7654 pp`, P `0.840941`보다
+  `-0.1202 pp`였다. 이는 matched candidate-pool control 자체도 early curve를 개선할 수
+  있음을 보여 P의 모든 AUC 이점을 adaptive allocation에 귀속하지 못하게 한다. 반면 10k
+  P-B1은 `+3.3120 pp`(`[+1.9017,+4.7055]`, wins/losses `24/4`)로 explicit adaptive
+  configuration의 추가 초기 이점이 관찰됐다. B1 training real/logged epoch time은 `76m56.6s/
+  74m15.4s`, observer total은 `520.75s`였으나 비교 endpoint가 아닌 운영 기록이다. 근거는 local 회수한
+  `artifacts/nnunet/stage_b/5_1_b1_seed55255_training.txt`와 six-point JSON/CSV다.
+- Stage-B seed 55255 A1 unit도 30k training과 six-point validation을 완료했다. A1 macro
+  Dice는 5k/10k/15k/20k/25k/30k에서 `0.467605/0.805895/0.867776/0.892229/
+  0.909132/0.922516`였고 normalized AUC는 `0.834018`이었다. 10k A1-B1은
+  `+3.0697 pp` (conditional paired case-bootstrap 95% CI `[+1.7537,+4.3664]`,
+  wins/losses `23/5`)였지만 P-A1은 `+0.2423 pp` (`[-1.3707,+1.8402]`, `14/14`)였다.
+  이 seed의 10k 결과는 candidate pool에 organ-wise adaptation을 더한 효과가 주된 추가
+  이점임을 시사하고, explicit error-type allocation의 추가 macro Dice 이점은 검출하지
+  못했다. 다만 A1은 5k에서 B1보다 `-5.4834 pp`, 20k에서 `-1.7166 pp`였고 30k에서는
+  B0/B1/A1/P가 `0.925029/0.923829/0.922516/0.922194`로 수렴했다. 따라서 A1의 이점은
+  10k checkpoint에 국한된 single-seed 관찰이며 seeds 55256/55257 replication 전에는 component
+  claim도 confirmatory가 아니다. A1 logged epoch time은 `71m16.1s`, observer total은
+  `494.65s`였다. 원격 completion marker·무활성 process·6개 JSON 회수 후 SHA-256 일치를
+  확인했다. 근거는 `artifacts/nnunet/stage_b/5_1_a1_seed55255_training.txt`, six-point
+  JSON/CSV, `5_4_seed55255_{10k,30k}_four_policy_comparison.{json,csv}`다.
+- 2026-09-20 seed 55256 결과 확인 전에 wall-clock time-to-target endpoint를 폐기했다.
+  RunPod migration host 간 steady iteration과 data-wait 변동이 커 elapsed time에 정책 외
+  infrastructure 효과가 섞이기 때문이다. 기존 timing artifact는 삭제하지 않고 운영 진단과
+  재현 비용 기록으로만 보존한다. 논문의 효율성 claim은 동일 optimizer update 기준의 10k
+  primary, 5k–30k AUC, updates-to-target로 제한한다.
+- 2026-09-20 사용자의 명시적 일정 재평가로 replication seed `55257`을 복원했다. 결정 시점은
+  seed 55256 A1 training 중이며 seed 55256 P training·seed 55257 전체 실행·최종 Stage-B
+  aggregation·held-out test보다 앞선다. 방법·checkpoint·metric은 변경하지 않고 Stage B를
+  `55255/55256/55257 × B0/B1/A1/P = 12 runs`로 확장한다. 표본수 변경 시점을 공개하고,
+  기존 성공 규칙을 느슨하게 하지 않기 위해 세 replication seed의 P-B0 @10k 평균 차이가
+  모두 양수이면서 paired seed×case bootstrap 95% CI lower가 0보다 커야 primary를 통과한다.
 - Full을 확보해도 모든 case를 학습에 써야 하는 것은 아니다. 실제 규모는
   B0 throughput·VRAM 측정 후 정하며 기존 결과를 보고 유리하게 변경하지 않는다.
 
@@ -579,18 +636,19 @@ Phase 4  Controlled Experiments                 IN PROGRESS
     |      final 30k Dice-superiority claim RETIRED
     |      10k learning-efficiency hypothesis SELECTED FOR REPLICATION
     |      seed 55254 = development/discovery, confirmatory 분석에서 제외
-    |    Stage B: 같은 4정책 × seeds 55255/55256 = replication 8 runs
+    |    Stage B: 같은 4정책 × seeds 55255/55256/55257 = replication 12 runs
     |             checkpoints 5k/10k/15k/20k/25k/30k
-    |    Total intended: 12 runs / 3 seeds (discovery 1 + replication 2)
+    |    Total intended: 16 runs / 4 seeds (discovery 1 + replication 3)
     |    동일 data·network·loss·augmentation·updates
     |    같은 initialization routine·초기 weight hash 점검
-    |    checkpoint·prediction·sampler 비용·wall-clock 순차 수집
+    |    checkpoint·prediction·sampler 비용 수집
+    |    wall-clock은 migration host 이질성으로 비교 endpoint에서 폐기
     |
 Phase 5  Evaluation & Claim Validation           NOT STARTED
     |    Confirmatory primary: replication seeds의 P-B0 Dice@10k
     |    Rule: two-way seed×case paired-bootstrap CI lower > 0
-    |          + 새 replication seed 2개 모두 positive mean delta
-    |    Secondary: learning-curve AUC·updates/time-to-target·small/per-organ
+    |          + replication seed 3개 모두 positive mean delta
+    |    Secondary: learning-curve AUC·updates-to-target·small/per-organ
     |    Ablation: B0→B1→A1→P component 차이
     |    Safety: 30k final Dice·NSD·HD95·empty·detached FP
     |    Held-out test 49: protocol/code 동결 후 B0/P @10k·30k만 최종 평가
@@ -632,7 +690,7 @@ Phase 2에서 예산상 training subset이 필요하면 Phase 1의 eligibility·
 
 Error-type의 개별 기여를 주장하려면 유형을 합친 adaptive 대조가 필요하다.
 Learning-progress는 Stage-A 결과에서 생성된 새 핵심 가설이다. 따라서 seed 55254는 discovery
-evidence로만 표시하고, 새 endpoint를 보지 않은 seeds 55255/55256의 사전 동결 분석만
+evidence로만 표시하고, replication seeds 55255/55256/55257의 분석만
 confirmatory evidence로 사용한다.
 새 backbone·attention·loss 추가 없이 sampling 비교에 집중한다.
 
@@ -644,33 +702,35 @@ confirmatory evidence로 사용한다.
 
 | 구분 | 동결 설계 | 목적 |
 | --- | --- | --- |
-| Training | seeds `55255/55256` × B0/B1/A1/P | 독립 replication 8 runs |
+| Training | seeds `55255/55256/55257` × B0/B1/A1/P | 독립 replication 12 runs |
 | Budget | 각 run 30,000 updates | 정책 간 동일 optimizer budget |
 | Checkpoints | 5k/10k/15k/20k/25k/30k | 6-point learning curve |
-| Validation | 8 runs × 6 checkpoints = 48회, frozen 28 cases | primary·AUC·target crossing |
+| Validation | 12 runs × 6 checkpoints = 72회, frozen 28 cases | primary·AUC·target crossing |
 | Primary | P−B0 case-first macro Dice @10k | discovery 가설의 직접 확인 |
 | Key secondary | normalized AUC 5k–30k | 전체 조기 학습곡선 요약 |
 | Target secondary | Dice 0.80/0.85/0.90 updates-to-target | update budget 절감량 |
-| Time secondary | 실제 누적 epoch time으로 time-to-target | observer overhead 포함 실용성 |
+| Wall-clock secondary | **폐기** — RunPod host별 CPU quota·data-wait 이질성 | 시간은 운영 진단으로만 보존 |
 | Ablation | B0→B1→A1→P @10k와 AUC | candidate/adaptation/error-type 역할 |
 | Safety | B0/P @30k Dice·NSD@3mm·HD95·empty·detached FP | ceiling·boundary regression 확인 |
-| Final test | Primary gate 통과 시 B0/P × 3 seeds × 10k/30k = 12 inference | frozen 49 cases 단 한 번 평가 |
+| Final test | Primary gate 통과 시 B0/P × 4 seeds × 10k/30k = 16 inference | frozen 49 cases 단 한 번 평가 |
 
-Primary 성공 조건은 새 seed 두 개의 P-B0 평균 차이가 각각 양수이고, seed와 validation case를
+Primary 성공 조건은 replication seed 세 개의 P-B0 평균 차이가 각각 양수이고, seed와 validation case를
 함께 resample한 paired two-way bootstrap 95% interval의 lower bound가 0보다 큰 것이다.
 Only primary에 이 성공 규칙을 적용한다. AUC·target·organ·surface 결과는 effect size와 interval을
 보고하되 다중 secondary 중 유리한 결과를 새 primary처럼 승격하지 않는다.
-다만 replication seed가 두 개뿐이므로 seed-resampling 분포는 희소하다. 두 seed 각각의 paired
+다만 replication seed가 세 개뿐이므로 training-seed 불확실성 추정은 여전히 제한적이다. 세 seed 각각의 paired
 case-bootstrap interval과 effect size를 별도로 표시하고, 넓은 training-seed population으로의
 일반화나 안정적인 variance 추정은 주장하지 않는다.
 
 Updates-to-target는 각 seed의 validation macro curve에서 처음 target을 통과하는 두 checkpoint
 사이를 선형 보간한다. 관측 범위 밖 extrapolation은 금지하고 `not reached`로 기록한다.
-Time-to-target는 30k 전체 평균시간을 단순 곱하지 않고 각 checkpoint까지 실제로 누적된 logged
-epoch time을 사용한다. 이는 P의 observer overhead가 update 절감을 상쇄하는지 직접 보여준다.
+Wall-clock time-to-target는 seed 55256 결과를 보기 전인 2026-09-20 폐기했다. RunPod migration마다
+host CPU quota와 data-wait가 크게 달라 정책 효과와 host 효과를 분리할 수 없기 때문이다.
+Training time·observer overhead·inference time·throughput은 실행 가능성과 이상 탐지를 위한 운영
+진단으로 보존하지만, 정책 우월성·효율성 비교나 논문 claim에는 사용하지 않는다.
 
 Stage B 실행 순서는 `공통 checkpoint 저장 구현 → 각 정책 2-update smoke → resume·SHA 감사 →
-8 runs 완료 → 48 validation 완료 → 동결 analysis 1회`다. 중간 결과를 보고 특정 정책이나 seed를
+12 runs 완료 → 72 validation 완료 → 동결 analysis 1회`다. 중간 결과를 보고 특정 정책이나 seed를
 중단하지 않는다. Primary가 실패하면 새 threshold를 찾아 가설을 구제하지 않고, 결과를
 불확실/재현 실패로 보고하고 test를 구제용으로 열지 않는다. Held-out test 49 cases는 Stage-B
 primary 성공 후 결과표와 analysis code까지 동결됐을 때만 접근한다. Test에서 primary가
@@ -716,8 +776,8 @@ iteration은 0.5022초, data-wait p95는 0.9793초로, 정상 host의 0.1639초�
 pipeline starvation으로 판정했다. 모두 5k milestone 전이므로 연구 결과에 포함하지
 않고 archive로만 보존한다. Stage B는 local staging 후 `workers=12` 100-update runtime
 qualification을 통과한 replacement host에서 처음부터 재시작한다. Discovery seed와 replication
-host가 다르므로 wall-clock 절대값은 Stage B 내부에서만 비교하고 primary는 계속
-update-based Dice @10k로 유지한다.
+host가 다르고 같은 Stage B 안에서도 migration별 CPU quota·data-wait가 달랐다. 따라서
+wall-clock 비교 endpoint는 폐기하고 primary는 update-based Dice @10k로 유지한다.
 
 Pod 생성·migration 후 unit 시작 전 1회 local staging:
 
@@ -777,6 +837,28 @@ Unit source는 `run_stage_b_training.sh`, seed별 10k 방향 검사는
 `check_stage_b_primary_direction.py`, local watchdog은 `monitor_stage_b.sh`다. Training은
 5k/10k/15k/20k/25k/30k checkpoint를 저장하며, 완료 시 여섯 checkpoint와 네 정책의 동일
 policy validation 결과를 모두 검사한다. Unit 완료 뒤 다음 seed/policy를 자동 시작하지 않는다.
+
+같은 seed의 B0/P six-point validation과 training log를 local
+`artifacts/nnunet/stage_b/`에 회수한 뒤 single-seed efficiency를 재생성:
+
+```bash
+cd /home/anna/projects/oles3d
+mkdir -p artifacts/nnunet/stage_b
+set -o pipefail
+
+.venv/bin/python research/nnunet/analyze_stage_b_seed_efficiency.py \
+  --seed 55255 \
+  --artifact-dir artifacts/nnunet/stage_b \
+  --bootstrap-resamples 100000 \
+  --bootstrap-seed 55254 \
+  --output-json artifacts/nnunet/stage_b/5_3_seed55255_b0_p_efficiency.json \
+  --output-checkpoint-csv artifacts/nnunet/stage_b/5_3_seed55255_b0_p_checkpoint_statistics.csv \
+  --output-organ-csv artifacts/nnunet/stage_b/5_3_seed55255_b0_p_organ_statistics.csv \
+  2>&1 | tee artifacts/nnunet/stage_b/5_3_seed55255_b0_p_efficiency.txt
+```
+
+이 출력은 한 trained B0/P pair에 조건부인 중간 분석이다. 최종 primary 판정은 seeds 55256/55257
+완료 후 frozen seed×case two-way bootstrap으로 별도 수행한다.
 
 현재 보수 산출물: `1_1b_full_archive_identity.txt`,
 `1_2b_full_extraction_inventory.txt`, `1_4c_small_dataset_audit.txt/.json`,
@@ -1505,23 +1587,24 @@ Comparator-count decision (`selected`, 2026-09-17; scale restored 2026-09-18): �
 candidate pool, organ-wise adaptation, error-type decomposition을 분리할 최소 실험군이다.
 B0/B1/A1/P 네 방법을 유지하며 B1/A1/P는 candidate 생성·갱신 cadence를 동일하게 하고
 allocation만 fixed→organ-wise→organ×error-type으로 변경한다. 먼저 seed 55254의 core
-4 runs를 완료하고, 이후 같은 네 방법을 추가 두 seed로 반복한다. 이 결정은 Phase 3 구현,
-Phase 4의 12 intended runs, Phase 5 contrast와 논문 claim wording에 적용한다. 다음 검증은
+4 runs를 완료하고, 이후 같은 네 방법을 추가 세 seed로 반복한다. 이 결정은 Phase 3 구현,
+Phase 4의 16 intended runs, Phase 5 contrast와 논문 claim wording에 적용한다. 다음 검증은
 B1/A1/P sampler contract와 synthetic/real-case audit다.
 
-Seed strategy (`selected`, revised 2026-09-19 by explicit user instruction): B0/B1/A1/P의
+Seed strategy (`selected`, revised 2026-09-20 by explicit user instruction): B0/B1/A1/P의
 seed `55254` Stage A는 30k 최종-Dice 우월성 가설을 지지하지 않았고, 같은 trajectory의 10k에서
 P 조기수렴 신호를 발견했다. 따라서 55254는 새 효율성 가설의 discovery seed로 표시한다.
-Common code·runtime·data·metric·30k horizon을 유지한 채 seeds `55255`, `55256`을 네 정책에
-추가해 총 12 runs / 3 seeds로 확장한다. Seed 55257은 시간 제약으로 취소했다. 이 변경은
-55255 B0 training 중이지만 Stage-B official-validation 결과를 보기 전에 결정했다.
-두 replication seed로 run 변동 추정은 크게 제한되며, 추가 8 runs 모두의 초기화 일치·완료·
+Common code·runtime·data·metric·30k horizon을 유지한 채 seeds `55255`, `55256`, `55257`을
+네 정책에 추가해 총 16 runs / 4 seeds로 확장한다. Seed 55257은 처음에는 시간 제약으로
+취소했으나 추가 시간이 확보되어 seed 55256 A1 training 중, seed 55256 P와 최종 분석 전에
+복원했다. 표본수 변경 시점을 공개하며 기존 성공 규칙을 느슨하게 하지 않는다.
+세 replication seed로도 run 변동 추정은 제한되며, 추가 12 runs 모두의 초기화 일치·완료·
 평가를 확인한 뒤 seed 통계를 보고한다. Seed 55254에는 5k/15k/25k checkpoint가 없으므로
-재학습해 소급 생성하지 않는다. Six-point learning curve와 AUC는 55255/55256에서만 계산하고,
-세 seed 공통 trajectory 비교는 10k/20k/30k로 제한한다. Stage A 결과를 보고 P만 반복하지 않으며 Stage B에서
+재학습해 소급 생성하지 않는다. Six-point learning curve와 AUC는 55255/55256/55257에서만 계산하고,
+네 seed 공통 trajectory 비교는 10k/20k/30k로 제한한다. Stage A 결과를 보고 P만 반복하지 않으며 Stage B에서
 버그가 발견돼 code를 바꾸면 영향받은 모든 정책·seed를 같은 규칙으로 다시 실행한다. Stage A만
 완료된 시점에는 새 efficiency endpoint를 single-seed exploratory evidence로만 해석하고,
-confirmatory 판정에는 55255/55256만 사용한다. 전체 3-seed 평균은 descriptive sensitivity로
+confirmatory 판정에는 55255/55256/55257만 사용한다. 전체 4-seed 평균은 descriptive sensitivity로
 별도 보고한다. Case bootstrap은 seed replication을 대체하지 않는다.
 
 Plateau `0.5 percentage point`는 compute 제약을 위한 사전 실용 기준이며 통계적 유의성
@@ -2406,7 +2489,7 @@ time으로 환산하면 wall-clock saving은 `+4.48/+0.76/-1.85 min`으로 감�
 P@30k `0.923413`은 B0@30k `0.923552`에 도달하지 못했다. 따라서 현 증거는
 **초기 update efficiency**를 지지하지만, final-performance budget이나 모든 target에서의
 wall-clock 절감을 지지하지 않는다. 이 threshold들은 seed 55254 결과를 본 뒤 선택한
-exploratory 분석이며, Stage-B 동결 후 새 seeds 55255/55256에서만 독립 평가한다.
+exploratory 분석이며, Stage-B replication seeds 55255/55256/55257에서 독립 평가한다.
 
 <a id="artifact-commands"></a>
 ### 산출물별 복사·실행 명령
